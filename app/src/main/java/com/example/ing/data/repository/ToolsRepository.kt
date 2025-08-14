@@ -32,7 +32,7 @@ class ToolsRepository {
         return try {
             val snapshot = collection
                 .whereEqualTo("isActive", true)
-                .orderBy("name", Query.Direction.ASCENDING)
+                //.orderBy("name", Query.Direction.ASCENDING)
                 .get()
                 .await()
 
@@ -41,6 +41,7 @@ class ToolsRepository {
             }
 
             Log.d("ToolsRepository", "Tools obtenidas: ${tools.size}")
+            Log.d("ToolsRepository", "Tools obtenidas: $tools")
             Result.success(tools)
         } catch (e: Exception) {
             Log.e("ToolsRepository", "Error al obtener tools: ", e)
@@ -102,7 +103,7 @@ class ToolsRepository {
             val snapshot = collection
                 .whereEqualTo("availability", "available")
                 .whereEqualTo("isActive", true)
-                .orderBy("name", Query.Direction.ASCENDING)
+                //.orderBy("name", Query.Direction.ASCENDING)
                 .get()
                 .await()
 

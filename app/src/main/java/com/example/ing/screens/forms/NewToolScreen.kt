@@ -5,6 +5,7 @@ import android.content.ContentValues
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -41,6 +42,8 @@ import com.example.ing.components.forms.CounterField
 import com.example.ing.components.forms.FormButton
 import com.example.ing.components.forms.FormDropdown
 import com.example.ing.components.forms.FormTextField
+import com.example.ing.data.models.Tool
+import com.example.ing.data.repository.ToolsRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,6 +59,8 @@ fun NewToolScreen(navController: NavController) {
     var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
     var pendingAction by remember { mutableStateOf<String?>(null) } // "gallery" o "camera"
     val scope = rememberCoroutineScope()
+
+    val repository = ToolsRepository()
 
     val availabilityOptions = listOf("Disponible", "En uso", "Mantenimiento", "Fuera de servicio")
     val context = LocalContext.current
@@ -407,8 +412,26 @@ fun NewToolScreen(navController: NavController) {
                     FormButton(
                         text = "Aceptar",
                         onClick = {
-                            // TODO: Implement save logic
-                            navController.navigateUp()
+                            scope.launch {
+                                val tool = Tool(
+                                    name = toolName,
+                                    availability = availability,
+                                    battery = batteryLevel,
+                                    temperature = temperature,
+                                    isActive = true
+                                )
+
+                                val result = repository.createTool(tool)
+                                if (result.isSuccess) {
+                                    Log.d("NewToolScreen", "Herramienta guardada con ID: ${result.getOrNull()}")
+                                    Log.d("NewToolScreen", "Herramienta guardada: $tool")
+
+                                    navController.navigateUp()
+                                } else {
+                                    // Aquí podrías usar un Snackbar o Toast para mostrar el error
+                                    Log.e("NewToolScreen", "Error guardando herramienta", result.exceptionOrNull())
+                                }
+                            }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
