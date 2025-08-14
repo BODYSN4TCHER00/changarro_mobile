@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -39,6 +40,11 @@ fun BottomNavigation(navController: NavController) {
             route = Screen.Tools.route,
             icon = Icons.Default.Build,
             label = "Herramientas"
+        ),
+        BottomNavItem(
+            route = Screen.Connection.route,
+            icon = Icons.Default.Wifi,
+            label = "Conexión"
         )
     )
 
@@ -57,7 +63,7 @@ fun BottomNavigation(navController: NavController) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 32.dp),
+                .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -65,6 +71,7 @@ fun BottomNavigation(navController: NavController) {
                 val isSelected = when (item.route) {
                     Screen.Jobs.route -> currentRoute == item.route || currentRoute?.startsWith("jobs/") == true
                     Screen.Tools.route -> currentRoute == item.route || currentRoute?.startsWith("tools/") == true
+                    Screen.Connection.route -> currentRoute == item.route
                     else -> currentRoute == item.route
                 }
                 Box(
