@@ -55,6 +55,8 @@ dependencies {
     implementation(libs.androidx.material)
     // Coil para Jetpack Compose
     implementation(libs.coil.compose)
+    // WebSocket para comunicación con Automotive
+    implementation(libs.java.websocket)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.firestore.ktx)
     testImplementation(libs.junit)
