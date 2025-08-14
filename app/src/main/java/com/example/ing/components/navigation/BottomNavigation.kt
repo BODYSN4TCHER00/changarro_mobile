@@ -40,12 +40,12 @@ fun BottomNavigation(navController: NavController) {
             route = Screen.Tools.route,
             icon = Icons.Default.Build,
             label = "Herramientas"
-        ),
+        )/*,
         BottomNavItem(
             route = Screen.Connection.route,
             icon = Icons.Default.Wifi,
             label = "Conexión"
-        )
+        )*/
     )
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()

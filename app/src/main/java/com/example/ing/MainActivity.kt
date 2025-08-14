@@ -6,22 +6,25 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.ing.components.navigation.AppNavigation
 import com.example.ing.components.navigation.BottomNavigation
 import com.example.ing.ui.theme.IngTheme
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.unit.dp
+import com.example.ing.network.WebSocketClient
+import java.net.URI
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Conectar al servidor al iniciar la app
+        WebSocketClient.connect("Mobile")
 
         enableEdgeToEdge()
         setContent {
@@ -49,5 +52,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        WebSocketClient.disconnect() // Cerrar conexión al salir
     }
 }
