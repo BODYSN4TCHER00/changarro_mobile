@@ -2,6 +2,7 @@ package com.example.ing.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.runtime.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -18,51 +19,87 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ing.utils.ToolData
+//import com.example.ing.utils.ToolData
+import com.example.ing.data.models.Tool
+import com.example.ing.data.repository.ToolsRepository
 import kotlin.math.abs
 
 @Composable
-fun ToolsCarousel(tools: List<ToolData>, modifier: Modifier = Modifier) {
-    val listState = rememberLazyListState()
-    val layoutInfo = listState.layoutInfo
-    val viewportCenter = layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset / 2
-    val centeredIndex = layoutInfo.visibleItemsInfo.minByOrNull { item ->
-        val itemCenter = item.offset + item.size / 2
-        abs(itemCenter - viewportCenter)
-    }?.index ?: listState.firstVisibleItemIndex
+fun ToolsCarousel(modifier: Modifier = Modifier) {
+    val repository = remember { ToolsRepository() }
+    var tools by remember { mutableStateOf<List<Tool>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
 
-    Column(modifier = modifier) {
-        LazyRow(
-            state = listState,
-            horizontalArrangement = Arrangement.spacedBy(32.dp),
-            contentPadding = PaddingValues(horizontal = 12.dp)
+    // Fetch de datos
+    LaunchedEffect(Unit) {
+        val result = repository.getAllActiveTools()
+        tools = result.getOrDefault(emptyList())
+        loading = false
+    }
+
+    if (loading) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp),
+            contentAlignment = Alignment.Center
         ) {
-            items(tools.size) { idx ->
-                ToolCard(tool = tools[idx])
-            }
+            CircularProgressIndicator()
         }
-        Spacer(modifier = Modifier.height(18.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
+    } else if (tools.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp),
+            contentAlignment = Alignment.Center
         ) {
-            repeat(tools.size) { index ->
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 4.dp)
-                        .size(if (index == centeredIndex) 12.dp else 8.dp)
-                        .clip(CircleShape)
-                        .background(
-                            color = if (index == centeredIndex) Color(0xFF232323) else Color(0xFFE0E0E0)
-                        )
-                )
+            Text("No hay herramientas disponibles")
+        }
+    } else {
+        val listState = rememberLazyListState()
+        val layoutInfo = listState.layoutInfo
+        val viewportCenter = layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset / 2
+        val centeredIndex = layoutInfo.visibleItemsInfo.minByOrNull { item ->
+            val itemCenter = item.offset + item.size / 2
+            abs(itemCenter - viewportCenter)
+        }?.index ?: listState.firstVisibleItemIndex
+
+        Column(modifier = modifier) {
+            LazyRow(
+                state = listState,
+                horizontalArrangement = Arrangement.spacedBy(32.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp)
+            ) {
+                items(tools.size) { idx ->
+                    ToolCard(tool = tools[idx])
+                }
+            }
+            Spacer(modifier = Modifier.height(18.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                repeat(tools.size) { index ->
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp)
+                            .size(if (index == centeredIndex) 12.dp else 8.dp)
+                            .clip(CircleShape)
+                            .background(
+                                color = if (index == centeredIndex) Color(0xFF232323) else Color(0xFFE0E0E0)
+                            )
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-fun ToolCard(tool: ToolData) {
+fun ToolCard(tool: Tool) {
+    val progress = tool.battery // si battery ya es un Int 0-100
+    val progressColor = if (progress > 50) Color(0xFF4CAF50) else Color(0xFFF44336)
+
     Card(
         modifier = Modifier
             .width(280.dp)
@@ -101,18 +138,18 @@ fun ToolCard(tool: ToolData) {
                     color = Color(0xFFE0E0E0)
                 )
                 CircularProgressIndicator(
-                    progress = tool.progress / 100f,
+                    progress = progress / 100f,
                     modifier = Modifier.size(210.dp),
                     strokeWidth = 28.dp,
-                    color = tool.progressColor
+                    color = progressColor
                 )
                 Text(
-                    text = "${tool.progress}%",
+                    text = "$progress%",
                     fontSize = 54.sp,
                     fontWeight = FontWeight.Bold,
-                    color = tool.progressColor
+                    color = progressColor
                 )
             }
         }
     }
-} 
+}

@@ -17,7 +17,8 @@ import androidx.compose.ui.unit.sp
 fun FormButton(
     text: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     Button(
         onClick = onClick,
@@ -27,6 +28,7 @@ fun FormButton(
         colors = ButtonDefaults.buttonColors(
             containerColor = Color(0xFF232323)
         ),
+        enabled = enabled,
         shape = RoundedCornerShape(16.dp)
     ) {
         Text(

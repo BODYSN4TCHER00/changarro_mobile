@@ -25,16 +25,31 @@ import com.example.ing.components.SearchBar
 import com.example.ing.components.navigation.Screen
 import com.example.ing.utils.toolsDetailData
 import com.example.ing.utils.ToolStatus
+import com.example.ing.data.models.Tool
+import com.example.ing.data.repository.ToolsRepository
 
 @Composable
 fun ToolsScreen(navController: NavController) {
-    val tools = toolsDetailData
+    val repository = remember { ToolsRepository() }
+    var tools by remember { mutableStateOf<List<Tool>>(emptyList()) }
+    var filter by remember { mutableStateOf("all") } // "all", "available", "in_use", etc.
     var searchText by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // Filtrar herramientas según el texto de búsqueda
+    LaunchedEffect(Unit) {
+        val result = repository.getAllActiveTools()
+        if (result.isSuccess) {
+            tools = result.getOrNull() ?: emptyList()
+            errorMessage = null
+        } else {
+            errorMessage = result.exceptionOrNull()?.message ?: "Error al cargar herramientas"
+        }
+        isLoading = false
+    }
+
     val filteredTools = if (searchText.isBlank()) tools else tools.filter {
-        it.name.contains(searchText, ignoreCase = true) ||
-        it.model.contains(searchText, ignoreCase = true)
+        it.name.contains(searchText, ignoreCase = true)
     }
 
     Box(
@@ -43,63 +58,49 @@ fun ToolsScreen(navController: NavController) {
             .background(Color(0xFFF5F5F5))
             .statusBarsPadding()
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-        ) {
-            // Content
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-            ) {
-                // Search Bar
-                SearchBar(
-                    placeholder = "Buscar herramientas...",
-                    onSearch = { searchText = it },
-                    textColor = Color.Black
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Header Section
-                HeaderSection()
-                
-                Spacer(modifier = Modifier.height(20.dp))
-            }
-            
-            // Tools List with LazyColumn
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(bottom = 120.dp)
-            ) {
-                items(filteredTools) { tool ->
-                    ToolDetailCard(tool = tool)
+        Column(modifier = Modifier.fillMaxSize()) {
+            SearchBar(
+                placeholder = "Buscar herramientas...",
+                onSearch = { searchText = it },
+                textColor = Color.Black
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+            HeaderSection()
+            Spacer(modifier = Modifier.height(20.dp))
+
+            if (isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else if (errorMessage != null) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(errorMessage!!, color = Color.Red)
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 120.dp)
+                ) {
+                    items(filteredTools) { tool ->
+                        ToolDetailCard(tool = tool)
+                    }
                 }
             }
         }
-        
-        // Floating Action Button - Fixed position
-        Box(
+
+        FloatingActionButton(
+            onClick = { navController.navigate(Screen.NewTool.route) },
+            containerColor = Color(0xFF232323),
+            contentColor = Color.White,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 24.dp, bottom = 150.dp)
         ) {
-            FloatingActionButton(
-                onClick = { navController.navigate(Screen.NewTool.route) },
-                containerColor = Color(0xFF232323),
-                contentColor = Color.White,
-                modifier = Modifier.size(56.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Agregar herramienta",
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+            Icon(imageVector = Icons.Default.Add, contentDescription = "Agregar herramienta")
         }
     }
 }
@@ -123,7 +124,7 @@ private fun HeaderSection() {
 }
 
 @Composable
-private fun ToolDetailCard(tool: com.example.ing.utils.ToolDetailData) {
+private fun ToolDetailCard(tool: Tool) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -131,118 +132,41 @@ private fun ToolDetailCard(tool: com.example.ing.utils.ToolDetailData) {
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
-        Box(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Status Icon
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .size(24.dp)
-                    .background(
-                        color = when (tool.status) {
-                            ToolStatus.GOOD -> Color(0xFF4CAF50)
-                            ToolStatus.WARNING -> Color(0xFFFF9800)
-                            ToolStatus.ERROR -> Color(0xFFF44336)
-                        },
-                        shape = CircleShape
-                    ),
+                    .size(80.dp)
+                    .background(Color(0xFFF0F0F0), RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = when (tool.status) {
-                        ToolStatus.GOOD -> Icons.Default.Check
-                        ToolStatus.WARNING -> Icons.Default.Warning
-                        ToolStatus.ERROR -> Icons.Default.Error
-                    },
-                    contentDescription = "Estado",
-                    tint = Color.White,
-                    modifier = Modifier.size(16.dp)
+                    imageVector = Icons.Default.Build,
+                    contentDescription = tool.name,
+                    tint = Color(0xFF232323),
+                    modifier = Modifier.size(40.dp)
                 )
             }
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Tool Image Placeholder
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .background(Color(0xFFF0F0F0), RoundedCornerShape(12.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = tool.icon,
-                        contentDescription = tool.name,
-                        tint = Color(0xFF232323),
-                        modifier = Modifier.size(40.dp)
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(16.dp))
-                
-                // Tool Information
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = tool.name,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF232323)
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = tool.model,
-                        fontSize = 14.sp,
-                        color = Color(0xFF9E9E9E)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Battery Status
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.BatteryStd,
-                            contentDescription = "Batería",
-                            tint = tool.batteryColor,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "${tool.batteryLevel}%",
-                            fontSize = 12.sp,
-                            color = tool.batteryColor,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    
-                    Spacer(modifier = Modifier.height(4.dp))
-                    
-                    // Temperature Status
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Thermostat,
-                            contentDescription = "Temperatura",
-                            tint = tool.temperatureColor,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "${tool.temperature}°C",
-                            fontSize = 12.sp,
-                            color = tool.temperatureColor,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = tool.name,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF232323)
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "${tool.battery}% batería | ${tool.temperature}°C",
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
             }
         }
-    }
-}
+    }}
