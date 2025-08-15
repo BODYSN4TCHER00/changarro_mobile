@@ -24,6 +24,7 @@ import com.example.ing.components.forms.FormTextField
 
 @Composable
 fun NewJobScreen(navController: NavController) {
+    val context = LocalContext.current
     var title by remember { mutableStateOf("") }
     var location by remember { mutableStateOf("") }
     var date by remember { mutableStateOf("") }
@@ -148,14 +149,35 @@ fun NewJobScreen(navController: NavController) {
                     Spacer(modifier = Modifier.height(40.dp))
                     
                     // Accept button - Dark gray, rounded
-                    FormButton(
+                     FormButton(
                         text = "Aceptar",
-                        onClick = {
-                            // TODO: Implement save logic
-                            navController.navigateUp()
-                        }
+                            onClick = {
+                            val newJob = JobData(
+                                title = title.trim(),
+                                location = location.trim(),
+                                    date = "${date.trim()} ${time.trim()}".trim(),
+                                        icon = Icons.Default.Build // puedes mapear por 'type' si quieres
+                                    )
+
+                        val current = loadJobs(context, com.example.ing.utils.jobsData)
+                            current.add(0, newJob) // al inicio de la lista (opcional)
+                            saveJobs(context, current)
+
+                        navController.navigateUp()
+                    },
+                        color = Color.Gray,
+                        shape = RoundedCornerShape(100.dp)
                     )
                     
+                    // Cancel button - Light gray, rounded
+                    FormButton(
+                        text = "Cancelar",
+                        onClick = {
+                            navController.navigateUp()
+                        },
+                        color = Color.LightGray,
+                        shape = RoundedCornerShape(100.dp)
+                    )
                     Spacer(modifier = Modifier.height(32.dp))
                 }
             }

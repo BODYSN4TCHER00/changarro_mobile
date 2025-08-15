@@ -46,10 +46,31 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 
+import com.example.ing.utils.jobsData
+import com.example.ing.utils.saveJobs
+import com.example.ing.utils.loadJobs
 @Composable
 fun JobsScreen(navController: NavController) {
+    val context = LocalContext.current
     var jobs by remember { mutableStateOf(jobsData.toMutableList()) }
     var searchText by remember { mutableStateOf("") }
+
+    //Recargar al volver a esta pantalla (ON_RESUME)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                jobs = loadJobs(context, jobsData)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val filteredJobs = if (searchText.isBlank()) jobs else jobs.filter {
+        it.title.contains(searchText, ignoreCase = true) ||
+        it.location.contains(searchText, ignoreCase = true)
+    }
 
     // Filtrar trabajos según el texto de búsqueda
     val filteredJobs = if (searchText.isBlank()) jobs else jobs.filter {
@@ -102,29 +123,31 @@ fun JobsScreen(navController: NavController) {
                 contentPadding = PaddingValues(bottom = 120.dp)
             ) {
                 items(
-                    items = filteredJobs,
-                    key = { job -> job.hashCode() }
-                ) { job ->
-                    Box(modifier = Modifier.clickable {
-                        val jobIndex = jobs.indexOf(job)
-                        if (jobIndex != -1) {
-                            navController.navigate(
-                                com.example.ing.components.navigation.Screen.JobDetail.routeForId(jobIndex.toString())
-                            )
-                        }
-                    }) {
-                        SwipeableJobCard(
-                            job = job,
-                            onDelete = { jobToDelete ->
-                                jobs = jobs.filter { it != jobToDelete }.toMutableList()
-                            },
-                            onComplete = { jobToComplete ->
-                                jobs = jobs.filter { it != jobToComplete }.toMutableList()
-                            }
-                        )
-                    }
+            items = filteredJobs,
+            key = { job -> job.hashCode() }
+        ) { job ->
+            Box(modifier = Modifier.clickable {
+                val jobIndex = jobs.indexOf(job)
+                if (jobIndex != -1) {
+                    navController.navigate(
+                        com.example.ing.components.navigation.Screen.JobDetail.routeForId(jobIndex.toString())
+                    )
                 }
+            }) {
+                SwipeableJobCard(
+                    job = job,
+                    onDelete = { jobToDelete ->
+                        jobs = jobs.filter { it != jobToDelete }.toMutableList()
+                        saveJobs(context, jobs) //Persistir al borrar
+                    },
+                    onComplete = { jobToComplete ->
+                        jobs = jobs.filter { it != jobToComplete }.toMutableList()
+                        saveJobs(context, jobs) //Persistir al completar (si decides remover)
+                    }
+                )
             }
+        }
+    }
         }
 
         // Floating Action Button - Fixed position
