@@ -39,9 +39,11 @@ import androidx.compose.material.icons.filled.PhotoLibrary
 import kotlinx.coroutines.launch
 import android.content.pm.PackageManager
 import com.example.ing.components.forms.CounterField
-import com.example.ing.components.forms.FormButton
-import com.example.ing.components.forms.FormDropdown
-import com.example.ing.components.forms.FormTextField
+import com.example.ing.components.forms.FormField
+import com.example.ing.components.forms.FieldType
+import com.example.ing.components.forms.FormActions
+import com.example.ing.components.forms.FormHeader
+import com.example.ing.components.forms.FormContainer
 import com.example.ing.data.enums.AppColors
 import com.example.ing.data.models.Tool
 import com.example.ing.data.repository.ToolsRepository
@@ -374,28 +376,31 @@ fun NewToolScreen(navController: NavController) {
                 ) {
                     Spacer(modifier = Modifier.height(70.dp))
 
-                    FormTextField(
+                    FormField(
                         label = "Nombre",
                         value = toolName,
                         onValueChange = { toolName = it },
+                        type = FieldType.TEXT,
                         icon = Icons.Default.List,
                         placeholder = "Ingrese el nombre de la herramienta"
                     )
                     Spacer(modifier = Modifier.height(18.dp))
-                    FormTextField(
+                    FormField(
                         label = "Modelo",
                         value = toolModel,
                         onValueChange = { toolModel = it },
+                        type = FieldType.TEXT,
                         icon = Icons.Default.List,
                         placeholder = "Ingrese el modelo de la herramienta"
                     )
                     Spacer(modifier = Modifier.height(18.dp))
-                    FormDropdown(
+                    FormField(
                         label = "Disponibilidad",
                         value = availability,
                         onValueChange = { availability = it },
-                        options = availabilityOptions,
-                        icon = null
+                        type = FieldType.TEXT,
+                        icon = Icons.Default.List,
+                        placeholder = "Seleccionar disponibilidad"
                     )
                     Spacer(modifier = Modifier.height(28.dp))
                     Row(
@@ -419,9 +424,8 @@ fun NewToolScreen(navController: NavController) {
                         )
                     }
                     Spacer(modifier = Modifier.height(48.dp))
-                    FormButton(
-                        text = "Aceptar",
-                        onClick = {
+                    FormActions(
+                        onAccept = {
                             scope.launch {
                                 val tool = Tool(
                                     name = toolName,
@@ -455,11 +459,11 @@ fun NewToolScreen(navController: NavController) {
                                 }
                             }
                         },
-                        shape = RoundedCornerShape(16.dp), // AÑADE ESTE
-                        color = Color(0xFF232323),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp)
+                        onCancel = {
+                            navController.navigateUp()
+                        },
+                        acceptText = "Aceptar",
+                        cancelText = "Cancelar"
                     )
                 }
             }

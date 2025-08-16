@@ -9,6 +9,7 @@ import com.example.ing.screens.JobsScreen
 import com.example.ing.screens.ToolsScreen
 import com.example.ing.screens.forms.NewJobScreen
 import com.example.ing.screens.forms.NewToolScreen
+import com.example.ing.screens.ToolStatusUpdateScreen
 
 sealed class Screen(val route: String) {
     object Home : Screen("home")
@@ -21,6 +22,12 @@ sealed class Screen(val route: String) {
         companion object {
             const val JOB_ID_ARG = "jobId"
             fun routeForId(id: String) = "jobs/detail/$id"
+        }
+    }
+    data class ToolStatusUpdate(val jobTitle: String) : Screen("tools/status/{$JOB_TITLE_ARG}") {
+        companion object {
+            const val JOB_TITLE_ARG = "jobTitle"
+            fun routeForTitle(title: String) = "tools/status/$title"
         }
     }
 }
@@ -59,6 +66,17 @@ fun AppNavigation(navController: NavHostController) {
         ) { backStackEntry ->
             val jobId = backStackEntry.arguments?.getString(Screen.JobDetail.JOB_ID_ARG) ?: ""
             com.example.ing.screens.JobDetailScreen(navController = navController, jobId = jobId)
+        }
+        composable(
+            route = Screen.ToolStatusUpdate("{jobTitle}").route,
+            arguments = listOf(
+                androidx.navigation.navArgument(Screen.ToolStatusUpdate.JOB_TITLE_ARG) {
+                    type = androidx.navigation.NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val jobTitle = backStackEntry.arguments?.getString(Screen.ToolStatusUpdate.JOB_TITLE_ARG) ?: ""
+            ToolStatusUpdateScreen(navController = navController, jobTitle = jobTitle)
         }
     }
 } 

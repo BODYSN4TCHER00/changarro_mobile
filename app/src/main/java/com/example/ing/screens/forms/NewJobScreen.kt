@@ -1,7 +1,6 @@
 package com.example.ing.screens.forms
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,19 +9,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.ing.components.*
-import com.example.ing.components.forms.FormButton
-import com.example.ing.components.forms.FormDropdown
-import com.example.ing.components.forms.FormTextField
+import com.example.ing.components.forms.FormField
+import com.example.ing.components.forms.FieldType
+import com.example.ing.components.forms.FormActions
+import com.example.ing.components.forms.FormHeader
+import com.example.ing.components.forms.FormContainer
+import com.example.ing.components.forms.ValidationError
 import com.example.ing.utils.JobData
+import com.example.ing.utils.JobStatus
 import com.example.ing.utils.loadJobs
 import com.example.ing.utils.saveJobs
 
@@ -33,9 +32,14 @@ fun NewJobScreen(navController: NavController) {
     var location by remember { mutableStateOf("") }
     var date by remember { mutableStateOf("") }
     var time by remember { mutableStateOf("") }
-    var type by remember { mutableStateOf("") }
     
-    val jobTypes = listOf("Mantenimiento", "Reparación", "Instalación", "Inspección", "Otro")
+    // Validación de campos
+    val isFormValid = title.isNotBlank() && location.isNotBlank() && 
+                     date.isNotBlank() && time.isNotBlank()
+    
+    // Variables para mostrar errores
+    var showValidationError by remember { mutableStateOf(false) }
+    var attemptedSubmit by remember { mutableStateOf(false) }
     
     Box(
         modifier = Modifier
@@ -46,37 +50,11 @@ fun NewJobScreen(navController: NavController) {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Header - Dark gray background with more space below
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF232323))
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Volver",
-                        tint = Color.White,
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clickable { navController.navigateUp() }
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text(
-                        text = "Nuevo Trabajo",
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-                // Additional space below the header
-                Spacer(modifier = Modifier.height(24.dp))
-            }
+            // Header
+            FormHeader(
+                title = "Nuevo Trabajo",
+                navController = navController
+            )
             
             // Main form container - Light gray with rounded top corners
             Box(
@@ -94,20 +72,22 @@ fun NewJobScreen(navController: NavController) {
                         .verticalScroll(rememberScrollState())
                 ) {
                     // Form fields with proper spacing
-                    FormTextField(
+                    FormField(
                         label = "Titulo",
                         value = title,
                         onValueChange = { title = it },
+                        type = FieldType.TEXT,
                         icon = Icons.Default.List,
                         placeholder = "Ingrese el título del trabajo"
                     )
                     
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    FormTextField(
+                    FormField(
                         label = "Lugar",
                         value = location,
                         onValueChange = { location = it },
+                        type = FieldType.TEXT,
                         icon = Icons.Default.LocationOn,
                         placeholder = "Ingrese la ubicación"
                     )
@@ -119,69 +99,73 @@ fun NewJobScreen(navController: NavController) {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        FormTextField(
+                        FormField(
                             label = "Fecha",
                             value = date,
                             onValueChange = { date = it },
-                            icon = Icons.Default.DateRange,
-                            placeholder = "DD/MM/YYYY",
+                            type = FieldType.DATE,
                             modifier = Modifier.weight(1f)
                         )
                         
                         Spacer(modifier = Modifier.width(16.dp))
 
-                        FormTextField(
+                        FormField(
                             label = "Hora",
                             value = time,
                             onValueChange = { time = it },
-                            icon = Icons.Default.Schedule,
-                            placeholder = "HH:MM",
+                            type = FieldType.TIME,
                             modifier = Modifier.weight(1f)
                         )
                     }
                     
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    FormDropdown(
-                        label = "Tipo",
-                        value = type,
-                        onValueChange = { type = it },
-                        options = jobTypes,
-                        icon = null
-                    )
+                    // Mostrar error de validación si se intentó enviar con campos vacíos
+                    if (attemptedSubmit && !isFormValid) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        ValidationError(
+                            message = "Por favor, completa todos los campos antes de continuar"
+                        )
+                    }
                     
                     Spacer(modifier = Modifier.height(40.dp))
                     
-                    // Accept button - Dark gray, rounded
-                     FormButton(
-                        text = "Aceptar",
-                            onClick = {
-                            val newJob = JobData(
-                                title = title.trim(),
-                                location = location.trim(),
-                                date = "${date.trim()} ${time.trim()}".trim(),
-                                icon = Icons.Default.Build // puedes mapear por 'type' si quieres
-                            )
+                    // Form actions
+                    FormActions(
+                        onAccept = {
+                            attemptedSubmit = true
+                            if (isFormValid) {
+                                val newJob = JobData(
+                                    title = title.trim(),
+                                    location = location.trim(),
+                                    date = "${date.trim()} ${time.trim()}".trim(),
+                                    icon = Icons.Default.Build,
+                                    status = JobStatus.PENDING, // Por defecto pendiente
+                                    assignedTools = emptyList() // Inicialmente sin herramientas asignadas
+                                )
 
-                        val current = loadJobs(context, com.example.ing.utils.jobsData)
-                            current.add(0, newJob) // al inicio de la lista (opcional)
-                            saveJobs(context, current)
+                                val current = loadJobs(context, emptyList()) // Usar lista vacía como fallback
+                                current.add(0, newJob)
+                                saveJobs(context, current)
 
-                        navController.navigateUp()
-                    },
-                        color = Color.Gray,
-                        shape = RoundedCornerShape(100.dp)
-                    )
-                    
-                    // Cancel button - Light gray, rounded
-                    FormButton(
-                        text = "Cancelar",
-                        onClick = {
+                                // Navegar directamente a la pantalla de detalles del trabajo recién creado
+                                // Usar el título del trabajo como identificador único
+                                navController.navigate(
+                                    com.example.ing.components.navigation.Screen.JobDetail.routeForId(newJob.title)
+                                ) {
+                                    // Limpiar el stack de navegación para que no se pueda volver al formulario
+                                    popUpTo(com.example.ing.components.navigation.Screen.NewJob.route) {
+                                        inclusive = true
+                                    }
+                                }
+                            }
+                        },
+                        onCancel = {
                             navController.navigateUp()
                         },
-                        color = Color.LightGray,
-                        shape = RoundedCornerShape(100.dp)
+                        acceptEnabled = true
                     )
+                    
                     Spacer(modifier = Modifier.height(32.dp))
                 }
             }

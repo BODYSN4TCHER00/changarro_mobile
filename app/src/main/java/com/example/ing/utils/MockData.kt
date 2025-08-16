@@ -6,11 +6,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.outlined.Lightbulb
 
 // Data Classes
+enum class JobStatus {
+    PENDING,    // Pendiente
+    ACTIVE,     // Activo
+    COMPLETED   // Completado
+}
+
 data class JobData(
     val title: String,
     val location: String,
     val date: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val status: JobStatus = JobStatus.PENDING, // Por defecto pendiente
+    val assignedTools: List<String> = emptyList() // Herramientas asignadas
 )
 
 data class ToolData(
@@ -40,27 +48,33 @@ val jobsData = listOf(
         "Mantenimiento Preventivo",
         "En Planta De Producción",
         "07/07/2025, 5:15pm",
-        Icons.Default.Build
+        Icons.Default.Build,
+        JobStatus.PENDING,
+        emptyList()
     ),
     JobData(
         "Sustitución De Luminarias LED",
         "En Planta De Producción",
         "07/07/2025, 5:15pm",
-        Icons.Default.Lightbulb
+        Icons.Default.Lightbulb,
+        JobStatus.ACTIVE,
+        emptyList()
     ),
     JobData(
         "Mantenimiento Preventivo",
         "Sala de Máquinas",
         "08/07/2025, 9:00am",
-        Icons.Default.Build
+        Icons.Default.Build,
+        JobStatus.COMPLETED,
+        emptyList()
     )
 )
 
 // Sample Data for HomeScreen
 val homeJobsData = listOf(
-    JobData("Mantenimiento Preventivo", "En Planta De Producción", "", Icons.Default.Build),
-    JobData("Reparación de Equipos", "Sala de Máquinas", "", Icons.Default.Build),
-    JobData("Inspección de Seguridad", "Área de Almacén", "", Icons.Default.Build)
+    JobData("Mantenimiento Preventivo", "En Planta De Producción", "", Icons.Default.Build, JobStatus.PENDING, emptyList()),
+    JobData("Reparación de Equipos", "Sala de Máquinas", "", Icons.Default.Build, JobStatus.ACTIVE, emptyList()),
+    JobData("Inspección de Seguridad", "Área de Almacén", "", Icons.Default.Build, JobStatus.COMPLETED, emptyList())
 )
 
 val toolsData = listOf(

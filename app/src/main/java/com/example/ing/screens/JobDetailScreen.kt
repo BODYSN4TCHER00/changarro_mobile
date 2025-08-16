@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,23 +22,46 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.ing.utils.jobsData
 import com.example.ing.utils.toolsDetailData
+import com.example.ing.utils.getJobById
+import com.example.ing.utils.getJobByTitle
+import com.example.ing.utils.updateJobAssignedTools
+import com.example.ing.utils.updateJobAssignedToolsByTitle
+import com.example.ing.components.navigation.Screen
 
 @Composable
 fun JobDetailScreen(navController: NavController, jobId: String) {
-    // Buscar el trabajo por ID (por ahora, por índice)
-    val jobIndex = jobId.toIntOrNull() ?: 0
-    val job = jobsData.getOrNull(jobIndex)
-    val jobTitle = job?.title ?: "Trabajo"
+    val context = LocalContext.current
+    
+    // Obtener el trabajo por ID o título
+    val job = if (jobId.toIntOrNull() != null) {
+        // Si es un número, tratar como índice
+        getJobById(context, jobId, emptyList()) // Usar lista vacía como fallback
+    } else {
+        // Si no es un número, tratar como título
+        getJobByTitle(context, jobId, emptyList()) // Usar lista vacía como fallback
+    }
+    
+    if (job == null) {
+        // Si no se encuentra el trabajo, mostrar error y volver
+        LaunchedEffect(Unit) {
+            navController.popBackStack()
+        }
+        return
+    }
 
-    // Simular herramientas asignadas (por ahora, todas seleccionadas)
-    var assignedTools by remember { mutableStateOf(toolsDetailData.map { it.name }.toSet()) }
+    // Estado para las herramientas asignadas
+    var assignedTools by remember { 
+        mutableStateOf(job.assignedTools?.toSet() ?: emptySet()) 
+    }
     var isEditing by remember { mutableStateOf(false) }
+    var showSuccessMessage by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -61,13 +85,14 @@ fun JobDetailScreen(navController: NavController, jobId: String) {
                 )
             }
             Text(
-                text = jobTitle,
+                text = job.title,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF232323),
                 modifier = Modifier.padding(start = 4.dp)
             )
         }
+
         // Editar herramientas
         Row(
             modifier = Modifier
@@ -75,13 +100,19 @@ fun JobDetailScreen(navController: NavController, jobId: String) {
                 .padding(horizontal = 24.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Text(
+                text = if (isEditing) "Seleccionar Herramientas" else "Herramientas Asignadas",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF232323)
+            )
             Spacer(modifier = Modifier.weight(1f))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.clickable { isEditing = !isEditing }
             ) {
                 Text(
-                    text = "Editar herramientas",
+                    text = if (isEditing) "Cancelar" else "Editar",
                     color = Color(0xFF2196F3),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium
@@ -94,55 +125,169 @@ fun JobDetailScreen(navController: NavController, jobId: String) {
                 )
             }
         }
-        // Lista de herramientas y botón Aceptar dentro del scroll
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-        ) {
-            items(toolsDetailData) { tool ->
-                ToolSelectableCard(
-                    tool = tool,
-                    selected = assignedTools.contains(tool.name),
-                    isEditing = isEditing,
-                    onToggle = {
-                        if (isEditing) {
+
+        // Lista de herramientas
+        if (isEditing) {
+            // Modo edición: mostrar todas las herramientas disponibles con checkboxes
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                items(toolsDetailData) { tool ->
+                    ToolSelectableCard(
+                        tool = tool,
+                        selected = assignedTools.contains(tool.name),
+                        isEditing = true,
+                        onToggle = {
                             assignedTools = if (assignedTools.contains(tool.name))
                                 assignedTools - tool.name
                             else
                                 assignedTools + tool.name
                         }
-                    }
-                )
-            }
-            // Botón Aceptar como parte del scroll
-            if (isEditing) {
+                    )
+                }
+                
+                // Botón Listo al final de la lista
                 item {
+                    Spacer(modifier = Modifier.height(20.dp))
                     Button(
-                        onClick = { isEditing = false },
+                        onClick = {
+                            // Guardar las herramientas asignadas
+                            if (jobId.toIntOrNull() != null) {
+                                updateJobAssignedTools(context, jobId, assignedTools.toList(), emptyList())
+                            } else {
+                                updateJobAssignedToolsByTitle(context, jobId, assignedTools.toList(), emptyList())
+                            }
+                            isEditing = false
+                            
+                            // Navegar a la pantalla de actualización de estado de herramientas
+                            navController.navigate(
+                                com.example.ing.components.navigation.Screen.ToolStatusUpdate.routeForTitle(jobId)
+                            )
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 16.dp)
-                            .height(48.dp),
+                            .height(56.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF232323))
                     ) {
                         Text(
-                            text = "Aceptar",
+                            text = "Listo",
                             color = Color.White,
-                            fontSize = 16.sp,
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
+                    Spacer(modifier = Modifier.height(20.dp))
                 }
             }
-            // Spacer para evitar que el botón quede tapado por el bottom navigation
-            item {
-                Spacer(modifier = Modifier.height(80.dp))
+        } else {
+            // Modo visualización: mostrar solo las herramientas asignadas
+            if (assignedTools.isEmpty()) {
+                // No hay herramientas asignadas
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Build,
+                            contentDescription = "Sin herramientas",
+                            tint = Color(0xFF9E9E9E),
+                            modifier = Modifier.size(64.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "No hay herramientas asignadas",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF9E9E9E)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Presiona 'Editar' para asignar herramientas",
+                            fontSize = 14.sp,
+                            color = Color(0xFFBDBDBD),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
+                }
+            } else {
+                // Mostrar herramientas asignadas
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    items(assignedTools.toList()) { toolName ->
+                        // Buscar la herramienta completa por nombre
+                        val tool = toolsDetailData.find { it.name == toolName }
+                        tool?.let {
+                            ToolSelectableCard(
+                                tool = it,
+                                selected = true,
+                                isEditing = false,
+                                onToggle = { /* No hacer nada en modo visualización */ }
+                            )
+                        }
+                    }
+                    // Spacer para evitar que el contenido quede tapado por el bottom navigation
+                    item {
+                        Spacer(modifier = Modifier.height(20.dp))
+                    }
+                }
             }
         }
+    }
+    
+    // Guardar automáticamente cuando se cambien las herramientas asignadas (solo en modo edición)
+    if (isEditing) {
+        LaunchedEffect(assignedTools) {
+            // No guardar automáticamente, esperar al botón Listo
+        }
+    }
+
+    // Mensaje de éxito
+    if (showSuccessMessage) {
+        AlertDialog(
+            onDismissRequest = { showSuccessMessage = false },
+            title = { 
+                Text(
+                    "Herramientas Actualizadas",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = { 
+                Text(
+                    "Se han actualizado las herramientas asignadas al trabajo \"${job.title}\" exitosamente.",
+                    fontSize = 16.sp
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showSuccessMessage = false
+                    }
+                ) {
+                    Text(
+                        "Aceptar",
+                        color = Color(0xFF232323),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        )
     }
 }
 
