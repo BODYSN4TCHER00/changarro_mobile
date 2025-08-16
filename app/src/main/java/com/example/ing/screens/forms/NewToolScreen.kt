@@ -433,6 +433,8 @@ fun NewToolScreen(navController: NavController) {
                                 }
                             }
                         },
+                        shape = RoundedCornerShape(16.dp), // AÑADE ESTE
+                        color = Color(0xFF232323),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp)

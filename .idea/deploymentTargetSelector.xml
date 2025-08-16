@@ -2,12 +2,12 @@
 <project version="4">
   <component name="deploymentTargetSelector">
     <selectionStates>
-      <SelectionState runConfigName="ing.app">
+      <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-08-14T05:12:50.677459966Z">
+        <DropdownSelection timestamp="2025-08-16T02:31:38.799591851Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="PhysicalDevice" identifier="serial=0005014AG000815" />
+              <DeviceId pluginId="LocalEmulator" identifier="path=/home/ricardom/.android/avd/Pixel_5.avd" />
             </handle>
           </Target>
         </DropdownSelection>

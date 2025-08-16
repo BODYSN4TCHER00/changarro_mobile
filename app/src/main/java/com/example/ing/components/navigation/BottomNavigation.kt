@@ -71,7 +71,7 @@ fun BottomNavigation(navController: NavController) {
                 val isSelected = when (item.route) {
                     Screen.Jobs.route -> currentRoute == item.route || currentRoute?.startsWith("jobs/") == true
                     Screen.Tools.route -> currentRoute == item.route || currentRoute?.startsWith("tools/") == true
-                    Screen.Connection.route -> currentRoute == item.route
+                    //Screen.Connection.route -> currentRoute == item.route
                     else -> currentRoute == item.route
                 }
                 Box(

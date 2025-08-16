@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -21,6 +22,9 @@ import com.example.ing.components.*
 import com.example.ing.components.forms.FormButton
 import com.example.ing.components.forms.FormDropdown
 import com.example.ing.components.forms.FormTextField
+import com.example.ing.utils.JobData
+import com.example.ing.utils.loadJobs
+import com.example.ing.utils.saveJobs
 
 @Composable
 fun NewJobScreen(navController: NavController) {
@@ -155,9 +159,9 @@ fun NewJobScreen(navController: NavController) {
                             val newJob = JobData(
                                 title = title.trim(),
                                 location = location.trim(),
-                                    date = "${date.trim()} ${time.trim()}".trim(),
-                                        icon = Icons.Default.Build // puedes mapear por 'type' si quieres
-                                    )
+                                date = "${date.trim()} ${time.trim()}".trim(),
+                                icon = Icons.Default.Build // puedes mapear por 'type' si quieres
+                            )
 
                         val current = loadJobs(context, com.example.ing.utils.jobsData)
                             current.add(0, newJob) // al inicio de la lista (opcional)

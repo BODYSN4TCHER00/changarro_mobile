@@ -45,6 +45,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 import com.example.ing.utils.jobsData
 import com.example.ing.utils.saveJobs
@@ -67,12 +71,6 @@ fun JobsScreen(navController: NavController) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    val filteredJobs = if (searchText.isBlank()) jobs else jobs.filter {
-        it.title.contains(searchText, ignoreCase = true) ||
-        it.location.contains(searchText, ignoreCase = true)
-    }
-
-    // Filtrar trabajos según el texto de búsqueda
     val filteredJobs = if (searchText.isBlank()) jobs else jobs.filter {
         it.title.contains(searchText, ignoreCase = true) ||
         it.location.contains(searchText, ignoreCase = true)
