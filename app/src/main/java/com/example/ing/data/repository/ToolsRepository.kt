@@ -124,6 +124,7 @@ class ToolsRepository {
             val snapshot = collection
                 .whereEqualTo("availability", "in_use")
                 .whereEqualTo("isActive", true)
+                .orderBy("updated_at", Query.Direction.DESCENDING)
                 .get()
                 .await()
 

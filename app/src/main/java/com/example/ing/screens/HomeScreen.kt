@@ -27,9 +27,25 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import com.example.ing.utils.jobsData
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.CircularProgressIndicator
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BatteryChargingFull
+import androidx.compose.material.icons.filled.Construction
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ing.data.models.Job
+import com.example.ing.data.models.Tool
+import com.example.ing.screens.viewmodel.HomeViewModel
 
 @Composable
-fun HomeScreen(navController: NavController) {
+fun HomeScreen(navController: NavController, viewModel: HomeViewModel = viewModel ()) {
+
+    //Obtener estado del HomeViewModel
+    val activeJobs by viewModel.activeJobs.collectAsState()
+    val toolsInUse by viewModel.toolsInUse.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -49,10 +65,18 @@ fun HomeScreen(navController: NavController) {
                     .padding(horizontal = 16.dp)
             ) {
                 // Jobs Section
-                JobsSection(navController)
+                JobsSection(
+                    jobs = activeJobs,
+                    isLoading = isLoading,
+                    navController = navController
+                )
                 Spacer(modifier = Modifier.height(24.dp))
                 // Tools Section
-                ToolsSection(navController)
+                ToolsSection(
+                    tools = toolsInUse,
+                    isLoading = isLoading && activeJobs.isEmpty(),
+                    navController
+                )
                 // Espacio extra para bottom navigation
                 Spacer(modifier = Modifier.height(100.dp))
             }
@@ -80,9 +104,13 @@ private fun CircleIcon(icon: ImageVector) {
 }
 
 @Composable
-private fun JobsSection(navController: NavController) {
-    val jobs = jobsData.take(4)
+private fun JobsSection(
+    jobs: List<Job>,
+    isLoading: Boolean,
+    navController: NavController
+) {
     val listState = rememberLazyListState()
+
     // Calcular el índice del card más centrado
     val layoutInfo = listState.layoutInfo
     val viewportCenter = layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset / 2
@@ -114,38 +142,59 @@ private fun JobsSection(navController: NavController) {
             )
         }
         Spacer(modifier = Modifier.height(12.dp))
-        LazyRow(
-            state = listState,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(horizontal = 0.dp)
-        ) {
-            itemsIndexed(jobs) { index, job ->
-                JobCard(job = job, jobIndex = index, navController = navController)
+
+        //Mostrar carga mientras se obtienen los datos
+        if (isLoading && jobs.isEmpty()) {
+            Box(modifier = Modifier
+                .fillMaxWidth()
+                .height(170.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else {
+            LazyRow(
+                state = listState,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(horizontal = 0.dp)
+            ) {
+                //Iterar obs
+                items(jobs, key = { it.id }) {
+                    job -> JobCard(job = job, navController = navController)
+                }
             }
         }
+
         Spacer(modifier = Modifier.height(18.dp))
+
         // Pagination Dots (Stepper)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            repeat(jobs.size) { index ->
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 4.dp)
-                        .size(if (index == centeredIndex) 12.dp else 8.dp)
-                        .clip(CircleShape)
-                        .background(
-                            color = if (index == centeredIndex) Color(0xFF232323) else Color(0xFFE0E0E0)
-                        )
-                )
+        if (jobs.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                repeat(jobs.size) { index ->
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp)
+                            .size(if (index == centeredIndex) 12.dp else 8.dp)
+                            .clip(CircleShape)
+                            .background(
+                                color = if (index == centeredIndex) Color(0xFF232323) else Color(0xFFE0E0E0)
+                            )
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ToolsSection(navController: NavController) {
+private fun ToolsSection(
+    tools: List<Tool>,
+    isLoading: Boolean,
+    navController: NavController
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -172,19 +221,29 @@ private fun ToolsSection(navController: NavController) {
             )
         }
         Spacer(modifier = Modifier.height(50.dp))
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(32.dp),
-            contentPadding = PaddingValues(horizontal = 12.dp)
-        ) {
-            items(toolsData) { tool ->
-                ToolCard(tool = tool, navController = navController)
+
+        if (isLoading) {
+            Box(
+                modifier = Modifier.fillMaxWidth().height(100.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(32.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp)
+            ) {
+                items(tools, key = { it. id }) { tool ->
+                    ToolCard(tool = tool, navController = navController)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun JobCard(job: com.example.ing.utils.JobData, jobIndex: Int, navController: NavController) {
+private fun JobCard(job: Job, navController: NavController) {
     Card(
         modifier = Modifier
             .width(270.dp)
@@ -203,14 +262,14 @@ private fun JobCard(job: com.example.ing.utils.JobData, jobIndex: Int, navContro
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = job.title,
+                    text = job.clientName,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF232323)
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = job.location,
+                    text = job.worksite,
                     fontSize = 12.sp,
                     color = Color(0xFF9E9E9E)
                 )
@@ -218,7 +277,7 @@ private fun JobCard(job: com.example.ing.utils.JobData, jobIndex: Int, navContro
                 Button(
                     onClick = {
                         navController.navigate(
-                            com.example.ing.components.navigation.Screen.JobDetail.routeForId(jobIndex.toString())
+                            com.example.ing.components.navigation.Screen.JobDetail.routeForId(job.id)
                         )
                     },
                     modifier = Modifier
@@ -241,8 +300,8 @@ private fun JobCard(job: com.example.ing.utils.JobData, jobIndex: Int, navContro
             }
             Spacer(modifier = Modifier.width(10.dp))
             Icon(
-                imageVector = job.icon,
-                contentDescription = job.title,
+                imageVector = Icons.Default.Construction,
+                contentDescription = job.clientName,
                 tint = Color(0xFF232323),
                 modifier = Modifier.size(30.dp)
             )
@@ -251,58 +310,70 @@ private fun JobCard(job: com.example.ing.utils.JobData, jobIndex: Int, navContro
 }
 
 @Composable
-private fun ToolCard(tool: com.example.ing.utils.ToolData, navController: NavController) {
+private fun ToolCard(tool: Tool, navController: NavController) {
+    // 1. Calcula el color dinámicamente basado en el nivel de batería
+    val progressColor = when {
+        tool.battery > 60 -> Color(0xFF4CAF50) // Verde
+        tool.battery > 20 -> Color(0xFFFFC107) // Ámbar/Amarillo
+        else -> Color(0xFFF44336) // Rojo
+    }
+
     Card(
         modifier = Modifier
-            .width(280.dp)
-            .height(300.dp)
+            .width(220.dp) // Hacemos la tarjeta más ancha y alta
+            .height(260.dp)
             .shadow(
-                elevation = 20.dp,
-                shape = RoundedCornerShape(40.dp),
-                ambientColor = Color(0x66000000), // sombra más fuerte
-                spotColor = Color(0x44000000)
+                elevation = 12.dp,
+                shape = RoundedCornerShape(30.dp),
+                ambientColor = Color(0x4D000000)
             )
             .clickable { navController.navigate(com.example.ing.components.navigation.Screen.Tools.route) },
-        shape = RoundedCornerShape(40.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F8F8))
+        shape = RoundedCornerShape(30.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 38.dp, bottom = 32.dp, start = 24.dp, end = 24.dp),
+                .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.SpaceAround // Espacia el nombre y el círculo
         ) {
+            // Muestra el nombre de la herramienta en la parte superior
             Text(
                 text = tool.name,
-                fontSize = 20.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF232323),
-                modifier = Modifier.padding(bottom = 18.dp)
+                color = Color(0xFF232323)
             )
+
+            // 2. Box para superponer los indicadores de progreso y el texto
             Box(
-                modifier = Modifier.size(150.dp),
+                modifier = Modifier.size(120.dp), // Un tamaño adecuado para la tarjeta
                 contentAlignment = Alignment.Center
             ) {
-                // Fondo del círculo
+                // Fondo del círculo (siempre completo)
                 CircularProgressIndicator(
                     progress = 1f,
-                    modifier = Modifier.size(150.dp),
-                    strokeWidth = 22.dp,
-                    color = Color(0xFFE0E0E0)
+                    modifier = Modifier.fillMaxSize(),
+                    color = Color(0xFFE0E0E0), // Gris claro de fondo
+                    strokeWidth = 12.dp
                 )
-                // Progreso real
+
+                // Progreso real basado en la batería
                 CircularProgressIndicator(
-                    progress = tool.progress / 100f,
-                    modifier = Modifier.size(150.dp),
-                    strokeWidth = 22.dp,
-                    color = tool.progressColor
+                    // 3. Usa tool.battery y lo convierte a un valor entre 0.0 y 1.0
+                    progress = tool.battery / 100f,
+                    modifier = Modifier.fillMaxSize(),
+                    color = progressColor, // Usa el color calculado
+                    strokeWidth = 12.dp
                 )
+
+                // Texto con el porcentaje en el centro
                 Text(
-                    text = "${tool.progress}%",
-                    fontSize = 36.sp,
+                    text = "${tool.battery}%",
+                    fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
-                    color = tool.progressColor
+                    color = progressColor // Usa el mismo color para el texto
                 )
             }
         }

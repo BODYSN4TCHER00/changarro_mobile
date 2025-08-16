@@ -42,6 +42,7 @@ import com.example.ing.components.forms.CounterField
 import com.example.ing.components.forms.FormButton
 import com.example.ing.components.forms.FormDropdown
 import com.example.ing.components.forms.FormTextField
+import com.example.ing.data.enums.AppColors
 import com.example.ing.data.models.Tool
 import com.example.ing.data.repository.ToolsRepository
 
@@ -49,6 +50,7 @@ import com.example.ing.data.repository.ToolsRepository
 @Composable
 fun NewToolScreen(navController: NavController) {
     var toolName by remember { mutableStateOf("") }
+    var toolModel by remember { mutableStateOf("") }
     var availability by remember { mutableStateOf("") }
     var batteryLevel by remember { mutableStateOf(50) }
     var temperature by remember { mutableStateOf(15) }
@@ -62,7 +64,7 @@ fun NewToolScreen(navController: NavController) {
 
     val repository = ToolsRepository()
 
-    val availabilityOptions = listOf("Disponible", "En uso", "Mantenimiento", "Fuera de servicio")
+    val availabilityOptions = listOf("Disponible", "En uso", "Fuera de servicio")
     val context = LocalContext.current
 
     // Declarar los launchers como variables mutables
@@ -380,6 +382,14 @@ fun NewToolScreen(navController: NavController) {
                         placeholder = "Ingrese el nombre de la herramienta"
                     )
                     Spacer(modifier = Modifier.height(18.dp))
+                    FormTextField(
+                        label = "Modelo",
+                        value = toolModel,
+                        onValueChange = { toolModel = it },
+                        icon = Icons.Default.List,
+                        placeholder = "Ingrese el modelo de la herramienta"
+                    )
+                    Spacer(modifier = Modifier.height(18.dp))
                     FormDropdown(
                         label = "Disponibilidad",
                         value = availability,
@@ -415,7 +425,19 @@ fun NewToolScreen(navController: NavController) {
                             scope.launch {
                                 val tool = Tool(
                                     name = toolName,
-                                    availability = availability,
+                                    model = toolModel,
+                                    availability = when (availability) {
+                                        "Disponible" -> {
+                                            "available"
+                                        }
+                                        "En uso" -> {
+                                            "in_use"
+                                        }
+                                        "Fuera de servicio" -> {
+                                            "not_available"
+                                        }
+                                        else -> "available"
+                                    },
                                     battery = batteryLevel,
                                     temperature = temperature,
                                     isActive = true
