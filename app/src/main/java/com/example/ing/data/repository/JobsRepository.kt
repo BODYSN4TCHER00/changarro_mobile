@@ -32,7 +32,7 @@ class JobsRepository {
     suspend fun getAllJobs(): Result<List<Job>> {
         return try {
             val snapshot = collection
-                .orderBy("created_at", Query.Direction.DESCENDING)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
                 .get()
                 .await()
 
@@ -78,6 +78,21 @@ class JobsRepository {
         }
     }
 
+    suspend fun updateJobStatus(jobId: String, newStatus: String): Result<Unit> {
+        return try {
+            val updates = mapOf(
+                "status" to newStatus,
+                "updatedAt" to Timestamp.now()
+            )
+            collection.document(jobId).update(updates).await()
+            Log.d("JobsRepository", "Estado del job $jobId actualizado a $newStatus")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("JobsRepository", "Error al actualizar status del job: ", e)
+            Result.failure(e)
+        }
+    }
+
     // DELETE
     suspend fun deleteJob(jobId: String): Result<Unit> {
         return try {
@@ -95,7 +110,7 @@ class JobsRepository {
         return try {
             val snapshot = collection
                 .whereEqualTo("status", status)
-                .orderBy("created_at", Query.Direction.DESCENDING)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
                 .get()
                 .await()
 
@@ -112,7 +127,7 @@ class JobsRepository {
 
     // Obtener trabajos en progreso
     suspend fun getActiveJobs(): Result<List<Job>> {
-        return getJobsByStatus("in_progress")
+        return getJobsByStatus("active")
     }
 
     // Obtener trabajos pendientes
@@ -132,7 +147,7 @@ class JobsRepository {
                 .update(
                     mapOf(
                         "selectedTools" to toolIds,
-                        "updated_at" to Timestamp.now()
+                        "updatedAt" to Timestamp.now()
                     )
                 ).await()
             Log.d("JobsRepository", "Herramientas asignadas al job $jobId: $toolIds")

@@ -15,19 +15,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ing.utils.JobData
-import com.example.ing.utils.JobStatus
+import com.example.ing.data.enums.JobStatus
+import com.example.ing.data.models.Job
 
 @Composable
 fun JobStatusCounter(
-    jobs: List<JobData>,
-    selectedFilters: Set<JobStatus> = emptySet(),
+    jobs: List<Job>,
+    selectedFilters: Set<com.example.ing.data.enums.JobStatus> = emptySet(),
     onFilterChanged: (Set<JobStatus>) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val pendingCount = jobs.count { it.status == JobStatus.PENDING }
-    val activeCount = jobs.count { it.status == JobStatus.ACTIVE }
-    val completedCount = jobs.count { it.status == JobStatus.COMPLETED }
+    val pendingCount = jobs.count { it.status == JobStatus.PENDING.name.lowercase() }
+    val activeCount = jobs.count { it.status == JobStatus.ACTIVE.name.lowercase() }
+    val completedCount = jobs.count { it.status == JobStatus.COMPLETED.name.lowercase() }
     
     Row(
         modifier = modifier.fillMaxWidth(),

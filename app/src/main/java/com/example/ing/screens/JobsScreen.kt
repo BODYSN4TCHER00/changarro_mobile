@@ -22,11 +22,9 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.clickable
-import com.example.ing.utils.jobsData
 import com.example.ing.components.SearchBar
 import com.example.ing.components.JobStatusCounter
 import com.example.ing.components.navigation.Screen
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.DismissDirection
 import androidx.compose.material.DismissValue
 import androidx.compose.material.ExperimentalMaterialApi
@@ -46,60 +44,49 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ing.data.enums.AppColors
+import com.example.ing.data.enums.JobStatus
+import com.example.ing.data.models.Job
+import com.example.ing.screens.viewmodel.JobsViewModel
+import java.text.SimpleDateFormat
+import java.util.Locale
 
-import com.example.ing.utils.jobsData
-import com.example.ing.utils.JobStatus
-import com.example.ing.utils.saveJobs
-import com.example.ing.utils.loadJobs
-import com.example.ing.utils.clearJobsStorage
 @Composable
-fun JobsScreen(navController: NavController) {
-    val context = LocalContext.current
-    var jobs by remember { mutableStateOf(loadJobs(context, jobsData)) }
+fun JobsScreen(navController: NavController, viewModel: JobsViewModel = viewModel ()) {
     var searchText by remember { mutableStateOf("") }
     var selectedStatusFilters by remember { mutableStateOf<Set<JobStatus>>(emptySet()) }
-    var showDeleteConfirmation by remember { mutableStateOf(false) }
-    var jobToDeleteConfirmation by remember { mutableStateOf<com.example.ing.utils.JobData?>(null) }
-    var resetDismissFunction by remember { mutableStateOf<(() -> Unit)?>(null) }
-
-    // Cargar trabajos existentes o inicializar con lista vacía
-    LaunchedEffect(Unit) {
-        // Cargar trabajos existentes del usuario
-        val existingJobs = loadJobs(context, emptyList()) // Usar lista vacía como fallback
-        jobs = existingJobs
-        
-        // Solo si no hay trabajos existentes, mostrar mensaje de estado vacío
-        if (existingJobs.isEmpty()) {
-            // Lista vacía, no hacer nada
-        }
-    }
-
-    //Recargar al volver a esta pantalla (ON_RESUME)
+    val allJobs by viewModel.allJobs.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    var jobToDelete by remember { mutableStateOf<Job?>(null) }
+    var jobToUpdate by remember { mutableStateOf<Job?>(null) }
+    var newStatusForUpdate by remember { mutableStateOf("") }
+
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                jobs = loadJobs(context, jobsData)
+                viewModel.loadJobs()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    val filteredJobs = jobs.filter { job ->
+    val filteredJobs = allJobs.filter { job ->
         // Filtro por búsqueda
         val matchesSearch = searchText.isBlank() || 
-            job.title.contains(searchText, ignoreCase = true) ||
-            job.location.contains(searchText, ignoreCase = true)
+            job.clientName.contains(searchText, ignoreCase = true) ||
+            job.worksite.contains(searchText, ignoreCase = true)
         
         // Filtro por estado - si no hay filtros seleccionados, mostrar todos
-        val matchesStatus = selectedStatusFilters.isEmpty() || 
-            selectedStatusFilters.contains(job.status)
-        
+        val matchesStatus = selectedStatusFilters.isEmpty() ||
+                selectedStatusFilters.map { it.name.lowercase() }.contains(job.status)
+
         matchesSearch && matchesStatus
     }
 
@@ -135,7 +122,7 @@ fun JobsScreen(navController: NavController) {
                 
                 // Job Status Counter (ahora funciona como filtro)
                 JobStatusCounter(
-                    jobs = jobs,
+                    jobs = allJobs,
                     selectedFilters = selectedStatusFilters,
                     onFilterChanged = { selectedStatusFilters = it },
                     modifier = Modifier.padding(vertical = 8.dp)
@@ -168,13 +155,6 @@ fun JobsScreen(navController: NavController) {
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFF9E9E9E)
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Crea tu primer trabajo usando el botón +",
-                            fontSize = 14.sp,
-                            color = Color(0xFFBDBDBD),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
                     }
                 }
             } else {
@@ -187,32 +167,20 @@ fun JobsScreen(navController: NavController) {
                 ) {
                     items(
                         items = filteredJobs,
-                        key = { job -> job.hashCode() }
+                        key = { it.id }
                     ) { job ->
                         Box(modifier = Modifier.clickable {
-                            // Pasar el título del trabajo como identificador único
-                            val route = com.example.ing.components.navigation.Screen.JobDetail.routeForId(job.title)
+                            val route = com.example.ing.components.navigation.Screen.JobDetail.routeForId(job.id)
                             navController.navigate(route)
                         }) {
                             SwipeableJobCard(
                                 job = job,
-                                onDelete = { jobToDelete, resetDismiss ->
-                                    // Mostrar confirmación antes de eliminar
-                                    showDeleteConfirmation = true
-                                    jobToDeleteConfirmation = jobToDelete
-                                    // Guardar la función de reset para usarla cuando se cancele
-                                    resetDismissFunction = resetDismiss
+                                onAttemptDelete = { swipedJob ->
+                                    jobToDelete = swipedJob
                                 },
-                                onStatusChange = { jobToUpdate, newStatus ->
-                                    val updatedJobs = jobs.map { 
-                                        if (it == jobToUpdate) {
-                                            it.copy(status = newStatus)
-                                        } else {
-                                            it
-                                        }
-                                    }.toMutableList()
-                                    jobs = updatedJobs
-                                    saveJobs(context, jobs) //Persistir el cambio de estado
+                                onAttemptStatusChange = { swipedJob, newStatus ->
+                                    jobToUpdate = swipedJob
+                                    newStatusForUpdate = newStatus
                                 }
                             )
                         }
@@ -240,51 +208,51 @@ fun JobsScreen(navController: NavController) {
                 )
             }
         }
-    }
-    
-    // Dialog de confirmación para eliminar
-    if (showDeleteConfirmation && jobToDeleteConfirmation != null) {
-        AlertDialog(
-            onDismissRequest = { 
-                showDeleteConfirmation = false
-                jobToDeleteConfirmation = null
-                // Resetear el dismiss cuando se cierre el diálogo
-                resetDismissFunction?.invoke()
-                resetDismissFunction = null
-            },
-            title = { Text("Confirmar eliminación") },
-            text = { 
-                Text("¿Estás seguro de que quieres eliminar el trabajo \"${jobToDeleteConfirmation?.title}\"?")
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        jobToDeleteConfirmation?.let { jobToDelete ->
-                            jobs = jobs.filter { it != jobToDelete }.toMutableList()
-                            saveJobs(context, jobs)
+
+        jobToDelete?.let { job ->
+            AlertDialog(
+                onDismissRequest = { jobToDelete = null },
+                containerColor = AppColors.DEFAULT.composeColor,
+                titleContentColor = Color.White,
+                textContentColor = Color.White,
+                title = { Text("Confirmar Eliminación") },
+                text = { Text("¿Estás seguro de que quieres eliminar el trabajo \"${job.clientName}\"?") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.deleteTool(job.id)
+                            jobToDelete = null
+                        },
+                        colors = ButtonDefaults.buttonColors(AppColors.RED.composeColor)
+                    ) { Text("Eliminar") }
+                },
+                dismissButton = {
+                    Button(onClick = { jobToDelete = null }) { Text("Cancelar") }
+                }
+            )
+        }
+
+        jobToUpdate?.let { job ->
+            AlertDialog(
+                onDismissRequest = { jobToUpdate = null },
+                containerColor = AppColors.DEFAULT.composeColor,
+                titleContentColor = Color.White,
+                textContentColor = Color.White,
+                title = { Text("Confirmar Cambio de Estado") },
+                text = { Text("¿Deseas cambiar el estado del trabajo \"${job.clientName}\" a \"${newStatusForUpdate.replaceFirstChar { it.uppercase() }}\"?") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.updateJobStatus(job.id, newStatusForUpdate)
+                            jobToUpdate = null
                         }
-                        showDeleteConfirmation = false
-                        jobToDeleteConfirmation = null
-                        resetDismissFunction = null
-                    }
-                ) {
-                    Text("Eliminar", color = Color(0xFFF44336))
+                    ) { Text("Confirmar") }
+                },
+                dismissButton = {
+                    Button(onClick = { jobToUpdate = null }) { Text("Cancelar") }
                 }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showDeleteConfirmation = false
-                        jobToDeleteConfirmation = null
-                        // Resetear el dismiss cuando se cancele
-                        resetDismissFunction?.invoke()
-                        resetDismissFunction = null
-                    }
-                ) {
-                    Text("Cancelar")
-                }
-            }
-        )
+            )
+        }
     }
 }
 
@@ -301,84 +269,47 @@ private fun HeaderSection() {
             fontWeight = FontWeight.Bold,
             color = Color(0xFF232323)
         )
-        // Eliminar 'Ver Todos' y el icono
-        // (No mostrar nada más a la derecha)
     }
 }
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
 private fun SwipeableJobCard(
-    job: com.example.ing.utils.JobData,
-    onDelete: (com.example.ing.utils.JobData, () -> Unit) -> Unit,
-    onStatusChange: (com.example.ing.utils.JobData, JobStatus) -> Unit
+    job: Job,
+    onAttemptDelete: (Job) -> Unit,
+    onAttemptStatusChange: (Job, String) -> Unit
 ) {
-    val dismissState = rememberDismissState()
-    var shouldResetDismiss by remember { mutableStateOf(false) }
-    
-    // Resetear el estado del dismiss cuando se cancele la operación
-    LaunchedEffect(dismissState.currentValue) {
-        when (dismissState.currentValue) {
-            DismissValue.DismissedToEnd -> {
-                // Deslizar a la derecha = Cambiar estado (solo si no está completado)
-                if (job.status != JobStatus.COMPLETED) {
-                    val nextStatus = when (job.status) {
-                        JobStatus.PENDING -> JobStatus.ACTIVE
-                        JobStatus.ACTIVE -> JobStatus.COMPLETED
-                        else -> job.status // No debería llegar aquí
+    val dismissState = rememberDismissState(
+        confirmStateChange = { dismissValue ->
+            when (dismissValue) {
+                // Deslizar a la izquierda para eliminar
+                DismissValue.DismissedToStart -> {
+                    onAttemptDelete(job)
+                }
+                // Deslizar a la derecha para cambiar estado
+                DismissValue.DismissedToEnd -> {
+                    if (job.status != JobStatus.COMPLETED.name.lowercase()) {
+                        val nextStatus = when (job.status) {
+                            JobStatus.PENDING.name.lowercase() -> JobStatus.ACTIVE.name.lowercase()
+                            else -> JobStatus.COMPLETED.name.lowercase()
+                        }
+                        onAttemptStatusChange(job, nextStatus)
                     }
-                    onStatusChange(job, nextStatus)
                 }
+                // El estado por defecto (cuando no se desliza completamente)
+                DismissValue.Default -> {}
             }
-            DismissValue.DismissedToStart -> {
-                // Deslizar a la izquierda = Eliminar
-                onDelete(job) { 
-                    // Callback para resetear el dismiss cuando se cancele
-                    shouldResetDismiss = true
-                }
-            }
-            DismissValue.Default -> {
-                // Resetear el estado cuando se cancele la operación
-                dismissState.reset()
-            }
-            else -> {}
+            return@rememberDismissState false
         }
-    }
-    
-    // Resetear automáticamente el estado cuando se suelte el swipe
-    LaunchedEffect(dismissState.targetValue) {
-        if (dismissState.targetValue == DismissValue.Default) {
-            // Pequeño delay para permitir que la animación termine
-            kotlinx.coroutines.delay(100)
-            dismissState.reset()
-        }
-    }
-    
-    // Resetear el dismiss cuando se solicite
-    LaunchedEffect(shouldResetDismiss) {
-        if (shouldResetDismiss) {
-            dismissState.reset()
-            shouldResetDismiss = false
-        }
-    }
-
+    )
     SwipeToDismiss(
         state = dismissState,
-        background = {
-            SwipeBackground(dismissState = dismissState, job = job)
-        },
-        dismissContent = {
-            JobCard(
-                job = job,
-                onStatusChange = { jobToUpdate, newStatus ->
-                    // Esta función se puede usar para cambiar estados manualmente si es necesario
-                }
-            )
-        },
-        directions = if (job.status == JobStatus.COMPLETED) {
-            setOf(DismissDirection.EndToStart) // Solo permitir eliminar
+        background = { SwipeBackground(dismissState = dismissState, job = job) },
+        dismissContent = { JobCard(job = job) },
+        directions = if (job.status == JobStatus.COMPLETED.name.lowercase()) {
+            setOf(DismissDirection.EndToStart)
         } else {
-            setOf(DismissDirection.StartToEnd, DismissDirection.EndToStart) // Permitir ambas direcciones
+            setOf(DismissDirection.StartToEnd, DismissDirection.EndToStart)
         }
     )
 }
@@ -387,23 +318,23 @@ private fun SwipeableJobCard(
 @Composable
 private fun SwipeBackground(
     dismissState: DismissState,
-    job: com.example.ing.utils.JobData
+    job: Job
 ) {
     val direction = dismissState.dismissDirection
     
     val nextStatus = when (job.status) {
-        JobStatus.PENDING -> JobStatus.ACTIVE
-        JobStatus.ACTIVE -> JobStatus.COMPLETED
-        JobStatus.COMPLETED -> null // No hay siguiente estado
+        JobStatus.PENDING.name.lowercase() -> JobStatus.ACTIVE.name.lowercase()
+        JobStatus.ACTIVE.name.lowercase() -> JobStatus.COMPLETED.name.lowercase()
+        else -> null
     }
     
     val color by animateColorAsState(
         targetValue = when (direction) {
             DismissDirection.EndToStart -> Color(0xFFF44336) // Rojo para eliminar (izquierda)
-            DismissDirection.StartToEnd -> when {
-                nextStatus == null -> Color.Transparent // No mostrar color si está completado
-                nextStatus == JobStatus.ACTIVE -> Color(0xFF2196F3) // Azul para activo
-                nextStatus == JobStatus.COMPLETED -> Color(0xFF4CAF50) // Verde para completado
+            DismissDirection.StartToEnd -> when (nextStatus) {
+                null -> Color.Transparent
+                JobStatus.ACTIVE.name.lowercase() -> AppColors.BLUE.composeColor
+                JobStatus.COMPLETED.name.lowercase() -> AppColors.GREEN.composeColor
                 else -> Color.Transparent
             }
             null -> Color.Transparent
@@ -420,8 +351,8 @@ private fun SwipeBackground(
     val icon = when (direction) {
         DismissDirection.EndToStart -> Icons.Default.Delete
         DismissDirection.StartToEnd -> when (nextStatus) {
-            JobStatus.ACTIVE -> Icons.Default.PlayArrow
-            JobStatus.COMPLETED -> Icons.Default.Check
+            JobStatus.ACTIVE.name.lowercase() -> Icons.Default.PlayArrow
+            JobStatus.COMPLETED.name.lowercase() -> Icons.Default.Check
             null -> null // No mostrar icono si está completado
             else -> null
         }
@@ -441,8 +372,8 @@ private fun SwipeBackground(
                 contentDescription = when (direction) {
                     DismissDirection.EndToStart -> "Eliminar"
                     DismissDirection.StartToEnd -> when (nextStatus) {
-                        JobStatus.ACTIVE -> "Marcar como Activo"
-                        JobStatus.COMPLETED -> "Marcar como Completado"
+                        JobStatus.ACTIVE.name.lowercase() -> "Marcar como Activo"
+                        JobStatus.COMPLETED.name.lowercase() -> "Marcar como Completado"
                         null -> "No se puede cambiar estado"
                         else -> null
                     }
@@ -457,9 +388,26 @@ private fun SwipeBackground(
 
 @Composable
 private fun JobCard(
-    job: com.example.ing.utils.JobData,
-    onStatusChange: ((com.example.ing.utils.JobData, JobStatus) -> Unit)? = null
+    job: Job
 ) {
+    val statusColor = when (job.status) {
+        JobStatus.PENDING.name.lowercase() -> AppColors.YELLOW.composeColor
+        JobStatus.ACTIVE.name.lowercase() -> AppColors.BLUE.composeColor
+        else -> AppColors.GREEN.composeColor
+    }
+
+    val statusIcon = when (job.status) {
+        JobStatus.PENDING.name.lowercase() -> Icons.Default.Schedule
+        JobStatus.ACTIVE.name.lowercase() -> Icons.Default.PlayArrow
+        else -> Icons.Default.Check
+    }
+    val statusText = job.status.replaceFirstChar { it.uppercase() }
+
+    fun formatDate(timestamp: com.google.firebase.Timestamp): String {
+        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        return sdf.format(timestamp.toDate())
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -472,25 +420,6 @@ private fun JobCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Status Indicator
-            val statusColor = when (job.status) {
-                JobStatus.PENDING -> Color(0xFFFF9800) // Naranja
-                JobStatus.ACTIVE -> Color(0xFF2196F3)  // Azul
-                JobStatus.COMPLETED -> Color(0xFF4CAF50) // Verde
-            }
-            
-            val statusIcon = when (job.status) {
-                JobStatus.PENDING -> Icons.Default.Schedule
-                JobStatus.ACTIVE -> Icons.Default.PlayArrow
-                JobStatus.COMPLETED -> Icons.Default.Check
-            }
-            
-            val statusText = when (job.status) {
-                JobStatus.PENDING -> "Pendiente"
-                JobStatus.ACTIVE -> "Activo"
-                JobStatus.COMPLETED -> "Completado"
-            }
-            
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -514,44 +443,33 @@ private fun JobCard(
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(
-                        text = job.title,
+                        text = job.clientName,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF232323)
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = job.location,
+                        text = job.worksite,
                         fontSize = 14.sp,
                         color = Color(0xFF9E9E9E)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Fecha: ${job.date}",
+                        text = "Fecha: ${formatDate(job.createdAt)}",
                         fontSize = 13.sp,
                         color = Color(0xFF232323)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = if (job.assignedTools.isNotEmpty()) {
-                            "Herramientas: ${job.assignedTools.size} asignadas"
-                        } else {
-                            "Asignar Herramientas >"
-                        },
+                        text = if (job.selectedTools.isNotEmpty()) "Herramientas: asignadas" else "Asignar Herramientas >",
                         fontSize = 12.sp,
-                        color = if (job.assignedTools.isNotEmpty()) Color(0xFF4CAF50) else Color(0xFF9E9E9E),
+                        color = if (job.selectedTools.isNotEmpty()) Color(0xFF4CAF50) else Color(0xFF9E9E9E),
                         fontWeight = FontWeight.Medium
                     )
                 }
 
                 Spacer(modifier = Modifier.width(16.dp))
-
-                Icon(
-                    imageVector = job.icon,
-                    contentDescription = job.title,
-                    tint = Color(0xFF232323),
-                    modifier = Modifier.size(48.dp)
-                )
             }
         }
     }

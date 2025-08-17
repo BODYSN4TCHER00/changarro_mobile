@@ -106,23 +106,51 @@ fun ToolsScreen(navController: NavController, viewModel: ToolsViewModel = viewMo
             }
 
             // Tools List with LazyColumn
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(bottom = 120.dp)
-            ) {
-                items(filteredTools, key = { it.id }) { tool ->
-                    SwipeableToolCard(
-                        tool = tool,
-                        onDelete = {
-                            viewModel.deleteTool( tool.id )
-                        },
-                        onCompleteAction = {
-                            println("ACCIÓN COMPLETAR PARA: ${it.name}")
-                        }
-                    )
+            if (filteredTools.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Sin herramientas",
+                            tint = Color(0xFF9E9E9E),
+                            modifier = Modifier.size(64.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "No hay herramientas",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF9E9E9E)
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 120.dp)
+                ) {
+                    items(filteredTools, key = { it.id }) { tool ->
+                        SwipeableToolCard(
+                            tool = tool,
+                            onDelete = {
+                                viewModel.deleteTool(tool.id)
+                            },
+                            onCompleteAction = {
+                                println("ACCIÓN COMPLETAR PARA: ${it.name}")
+                            }
+                        )
+                    }
                 }
             }
         }

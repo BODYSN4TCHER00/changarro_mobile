@@ -18,6 +18,7 @@ data class Tool(
     val model: String = "",
     val name: String = "",
     val temperature: Int = 0,
+    val url: String = "",
 
     @get:PropertyName("updated_at")
     @set:PropertyName("updated_at")
