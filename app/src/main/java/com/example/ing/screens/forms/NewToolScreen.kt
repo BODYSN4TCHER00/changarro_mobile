@@ -329,14 +329,11 @@ fun NewToolScreen(navController: NavController) {
                 }
                 if (tempFile.exists()) {
                     val url = supabaseService.uploadImage(tempFile)
-                    Log.d("SupabaseUpload", "URL pública generada: $url")
                     url
                 } else {
-                    Log.e("SupabaseUpload", "No se pudo crear el archivo temporal para la imagen")
                     null
                 }
             } catch (e: Exception) {
-                Log.e("SupabaseUpload", "Error al subir imagen", e)
                 null
             }
         }
@@ -401,13 +398,12 @@ fun NewToolScreen(navController: NavController) {
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(110.dp)
+                            .size(180.dp) // Más grande
                             .clip(CircleShape)
                             .background(Color(0xFFE0E0E0))
                             .clickable { showMenu = true },
                         contentAlignment = Alignment.Center
                     ) {
-                        Log.d("NewToolScreen", "Previsualización: imageUri=$imageUri")
                         if (imageUri != null) {
                             AsyncImage(
                                 model = ImageRequest.Builder(LocalContext.current)
@@ -416,7 +412,7 @@ fun NewToolScreen(navController: NavController) {
                                     .build(),
                                 contentDescription = "Imagen seleccionada",
                                 modifier = Modifier
-                                    .size(110.dp)
+                                    .size(180.dp)
                                     .clip(CircleShape),
                                 contentScale = ContentScale.Crop
                             )
@@ -425,7 +421,7 @@ fun NewToolScreen(navController: NavController) {
                                 imageVector = Icons.Default.CameraAlt,
                                 contentDescription = "Seleccionar imagen",
                                 tint = Color(0xFF9E9E9E),
-                                modifier = Modifier.size(48.dp)
+                                modifier = Modifier.size(72.dp)
                             )
                         }
                     }
@@ -510,39 +506,28 @@ fun NewToolScreen(navController: NavController) {
                     FormActions(
                         onAccept = {
                             scope.launch {
+                                var imageUrl = ""
                                 if (imageUri != null) {
-                                    val url = uploadImageToSupabase(imageUri!!, context)
-                                    Log.d("NewToolScreen", "URL de imagen subida: $url")
+                                    imageUrl = uploadImageToSupabase(imageUri!!, context) ?: ""
                                 }
                                 val tool = Tool(
                                     name = toolName,
                                     model = toolModel,
                                     availability = when (availability) {
-                                        "Disponible" -> {
-                                            "available"
-                                        }
-                                        "En uso" -> {
-                                            "in_use"
-                                        }
-                                        "Fuera de servicio" -> {
-                                            "not_available"
-                                        }
+                                        "Disponible" -> "available"
+                                        "No disponible" -> "not_available"
                                         else -> "available"
                                     },
                                     battery = batteryLevel,
                                     temperature = temperature,
-                                    isActive = true
+                                    isActive = true,
+                                    url = imageUrl
                                 )
-
                                 val result = repository.createTool(tool)
                                 if (result.isSuccess) {
-                                    Log.d("NewToolScreen", "Herramienta guardada con ID: ${result.getOrNull()}")
-                                    Log.d("NewToolScreen", "Herramienta guardada: $tool")
-
                                     navController.navigateUp()
                                 } else {
                                     // Aquí podrías usar un Snackbar o Toast para mostrar el error
-                                    Log.e("NewToolScreen", "Error guardando herramienta", result.exceptionOrNull())
                                 }
                             }
                         },
