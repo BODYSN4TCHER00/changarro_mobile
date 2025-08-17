@@ -26,6 +26,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel // Import correcto para viewModel()
 import androidx.navigation.NavController
 import com.example.ing.utils.jobsData
 import com.example.ing.utils.toolsDetailData
@@ -34,12 +39,48 @@ import com.example.ing.utils.getJobByTitle
 import com.example.ing.utils.updateJobAssignedTools
 import com.example.ing.utils.updateJobAssignedToolsByTitle
 import com.example.ing.components.navigation.Screen
+import com.example.ing.data.models.Tool
+import com.example.ing.screens.viewmodel.ToolsViewModel
+import com.example.ing.data.enums.AppColors
 
 @Composable
 fun JobDetailScreen(navController: NavController, jobId: String) {
     val context = LocalContext.current
-    
-    // Obtener el trabajo por ID o título
+    // Obtener el ViewModel y la lista real de herramientas
+    val toolsViewModel: ToolsViewModel = viewModel()
+    val allTools by toolsViewModel.allTools.collectAsState()
+    val isLoading by toolsViewModel.isLoading.collectAsState()
+    val errorMessage by toolsViewModel.errorMessage.collectAsState()
+
+    // LOG: Estado inicial de allTools
+    LaunchedEffect(allTools) {
+        android.util.Log.d("JobDetailScreen", "allTools actualizado: ${allTools.size} herramientas")
+        allTools.forEach { tool ->
+            android.util.Log.d("JobDetailScreen", "Tool: id=${tool.id}, name=${tool.name}, model=${tool.model}, battery=${tool.battery}, temp=${tool.temperature}, availability=${tool.availability}")
+        }
+    }
+    LaunchedEffect(isLoading) {
+        android.util.Log.d("JobDetailScreen", "isLoading: $isLoading")
+    }
+    LaunchedEffect(errorMessage) {
+        android.util.Log.d("JobDetailScreen", "errorMessage: $errorMessage")
+    }
+
+    // Forzar recarga de herramientas al entrar (igual que ToolsScreen)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                android.util.Log.d("JobDetailScreen", "ON_RESUME: llamando toolsViewModel.loadTools()")
+                toolsViewModel.loadTools()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // LOG: Estado del job
+    android.util.Log.d("JobDetailScreen", "jobId: $jobId")
     val job = if (jobId.toIntOrNull() != null) {
         // Si es un número, tratar como índice
         getJobById(context, jobId, emptyList()) // Usar lista vacía como fallback
@@ -47,6 +88,7 @@ fun JobDetailScreen(navController: NavController, jobId: String) {
         // Si no es un número, tratar como título
         getJobByTitle(context, jobId, emptyList()) // Usar lista vacía como fallback
     }
+    android.util.Log.d("JobDetailScreen", "job: ${job?.title}, assignedTools: ${job?.assignedTools}")
     
     if (job == null) {
         // Si no se encuentra el trabajo, mostrar error y volver
@@ -127,7 +169,15 @@ fun JobDetailScreen(navController: NavController, jobId: String) {
         }
 
         // Lista de herramientas
-        if (isEditing) {
+        if (isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else if (errorMessage != null) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Error: $errorMessage", color = Color.Red)
+            }
+        } else if (isEditing) {
             // Modo edición: mostrar todas las herramientas disponibles con checkboxes
             LazyColumn(
                 modifier = Modifier
@@ -136,7 +186,7 @@ fun JobDetailScreen(navController: NavController, jobId: String) {
                 verticalArrangement = Arrangement.spacedBy(18.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                items(toolsDetailData) { tool ->
+                items(allTools) { tool ->
                     ToolSelectableCard(
                         tool = tool,
                         selected = assignedTools.contains(tool.name),
@@ -231,7 +281,7 @@ fun JobDetailScreen(navController: NavController, jobId: String) {
                 ) {
                     items(assignedTools.toList()) { toolName ->
                         // Buscar la herramienta completa por nombre
-                        val tool = toolsDetailData.find { it.name == toolName }
+                        val tool = allTools.find { it.name == toolName }
                         tool?.let {
                             ToolSelectableCard(
                                 tool = it,
@@ -293,7 +343,7 @@ fun JobDetailScreen(navController: NavController, jobId: String) {
 
 @Composable
 private fun ToolSelectableCard(
-    tool: com.example.ing.utils.ToolDetailData,
+    tool: Tool, // Usar el modelo real
     selected: Boolean,
     isEditing: Boolean,
     onToggle: () -> Unit
@@ -321,9 +371,9 @@ private fun ToolSelectableCard(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = tool.icon,
+                    imageVector = Icons.Default.Build, // Usar un ícono genérico
                     contentDescription = tool.name,
-                    tint = Color.Unspecified,
+                    tint = Color(0xFF232323),
                     modifier = Modifier.size(40.dp)
                 )
             }
@@ -336,40 +386,50 @@ private fun ToolSelectableCard(
                     text = tool.name,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF232323)
+                    color = AppColors.DEFAULT.composeColor
                 )
                 Text(
                     text = tool.model,
                     fontSize = 14.sp,
-                    color = Color(0xFF9E9E9E)
+                    color = AppColors.BLUE.composeColor
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    val batteryColor = when {
+                        tool.battery < 20 -> AppColors.RED.composeColor
+                        tool.battery < 50 -> AppColors.YELLOW.composeColor
+                        else -> AppColors.GREEN.composeColor
+                    }
                     Icon(
                         imageVector = Icons.Default.BatteryStd,
                         contentDescription = "Batería",
-                        tint = tool.batteryColor,
+                        tint = batteryColor,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "${tool.batteryLevel}%",
+                        text = "${tool.battery}%",
                         fontSize = 12.sp,
-                        color = tool.batteryColor,
+                        color = batteryColor,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.width(16.dp))
+                    val temperatureColor = when {
+                        tool.temperature < 20 -> AppColors.GREEN.composeColor
+                        tool.temperature < 50 -> AppColors.YELLOW.composeColor
+                        else -> AppColors.RED.composeColor
+                    }
                     Icon(
                         imageVector = Icons.Default.Thermostat,
                         contentDescription = "Temperatura",
-                        tint = tool.temperatureColor,
+                        tint = temperatureColor,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "${tool.temperature}°C",
                         fontSize = 12.sp,
-                        color = tool.temperatureColor,
+                        color = temperatureColor,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -384,20 +444,20 @@ private fun ToolSelectableCard(
             ) {
                 if (selected) {
                     Icon(
-                        imageVector = if (isEditing) Icons.Default.CheckCircle else Icons.Default.CheckCircle,
+                        imageVector = Icons.Default.CheckCircle,
                         contentDescription = "Seleccionado",
-                        tint = if (isEditing) Color(0xFF2196F3) else Color(0xFF4CAF50),
+                        tint = if (isEditing) AppColors.BLUE.composeColor else AppColors.GREEN.composeColor,
                         modifier = Modifier.size(28.dp)
                     )
                 } else if (isEditing) {
                     Icon(
                         imageVector = Icons.Default.RadioButtonUnchecked,
                         contentDescription = "No seleccionado",
-                        tint = Color(0xFFBDBDBD),
+                        tint = AppColors.DEFAULT.composeColor,
                         modifier = Modifier.size(28.dp)
                     )
                 }
             }
         }
     }
-} 
+}
