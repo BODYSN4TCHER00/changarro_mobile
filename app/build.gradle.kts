@@ -5,6 +5,12 @@ plugins {
     alias(libs.plugins.google.services)
 }
 
+repositories {
+    google()
+    mavenCentral()
+    maven { url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") }
+}
+
 android {
     namespace = "com.example.ing"
     compileSdk = 35
@@ -76,4 +82,9 @@ dependencies {
     implementation("io.ktor:ktor-client-okhttp:$ktorVersion") // Motor HTTP
     implementation("io.ktor:ktor-client-websockets:$ktorVersion")
     implementation("io.ktor:ktor-client-logging:$ktorVersion")
+
+    // Supabase Kotlin SDK para Android (última versión estable compatible)
+    implementation(platform("io.github.jan-tennert.supabase:bom:2.0.0"))
+    implementation("io.github.jan-tennert.supabase:postgrest-kt")
+    implementation("io.github.jan-tennert.supabase:storage-kt")
 }

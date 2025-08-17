@@ -2,6 +2,7 @@ package com.example.ing.screens.forms
 
 import android.Manifest
 import android.content.ContentValues
+import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
@@ -47,6 +48,15 @@ import com.example.ing.components.forms.FormContainer
 import com.example.ing.data.enums.AppColors
 import com.example.ing.data.models.Tool
 import com.example.ing.data.repository.ToolsRepository
+import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.storage.Storage
+import io.github.jan.supabase.storage.storage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.InputStream
+import com.example.ing.services.SupabaseService
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +75,7 @@ fun NewToolScreen(navController: NavController) {
     val scope = rememberCoroutineScope()
 
     val repository = ToolsRepository()
+    val supabaseService = SupabaseService()
 
     val availabilityOptions = listOf("Disponible", "En uso", "Fuera de servicio")
     val context = LocalContext.current
@@ -73,20 +84,31 @@ fun NewToolScreen(navController: NavController) {
     var launchGalleryPicker by remember { mutableStateOf<(() -> Unit)?>(null) }
     var launchCamera by remember { mutableStateOf<(() -> Unit)?>(null) }
 
+    // Permisos para Android 13+
+    val galleryPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.READ_MEDIA_IMAGES
+    } else {
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    }
+
     // Galería
     val galleryPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
+        Log.d("NewToolScreen", "galleryPermissionLauncher: isGranted=$isGranted, pendingAction=$pendingAction")
         if (isGranted && pendingAction == "gallery") {
+            Log.d("NewToolScreen", "Permiso galería concedido, lanzando picker")
             launchGalleryPicker?.invoke()
             pendingAction = null
         } else {
+            Log.d("NewToolScreen", "Permiso galería denegado o acción no pendiente")
             pendingAction = null
         }
     }
     val galleryPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
+        Log.d("NewToolScreen", "galleryPickerLauncher: uri=$uri")
         if (uri != null) imageUri = uri
     }
     launchGalleryPicker = { galleryPickerLauncher.launch("image/*") }
@@ -95,21 +117,26 @@ fun NewToolScreen(navController: NavController) {
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
+        Log.d("NewToolScreen", "cameraPermissionLauncher: isGranted=$isGranted, pendingAction=$pendingAction, tempCameraUri=$tempCameraUri")
         if (isGranted && pendingAction == "camera" && tempCameraUri != null) {
+            Log.d("NewToolScreen", "Permiso cámara concedido, lanzando cámara")
             launchCamera?.invoke()
             pendingAction = null
         } else {
+            Log.d("NewToolScreen", "Permiso cámara denegado o acción no pendiente")
             pendingAction = null
         }
     }
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
+        Log.d("NewToolScreen", "cameraLauncher: success=$success, tempCameraUri=$tempCameraUri")
         if (success && tempCameraUri != null) {
             imageUri = tempCameraUri
         }
     }
     launchCamera = {
+        Log.d("NewToolScreen", "launchCamera: tempCameraUri=$tempCameraUri")
         tempCameraUri?.let { cameraLauncher.launch(it) }
     }
 
@@ -135,8 +162,8 @@ fun NewToolScreen(navController: NavController) {
                     },
                     modifier = Modifier.clickable {
                         showMenu = false
-                        val permission = Manifest.permission.READ_EXTERNAL_STORAGE
-                        val granted = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+                        val granted = ContextCompat.checkSelfPermission(context, galleryPermission) == PackageManager.PERMISSION_GRANTED
+                        Log.d("NewToolScreen", "Click galería: permission=$galleryPermission, granted=$granted")
                         if (granted) {
                             launchGalleryPicker?.invoke()
                         } else {
@@ -164,6 +191,7 @@ fun NewToolScreen(navController: NavController) {
                         }
                         val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
                         tempCameraUri = uri
+                        Log.d("NewToolScreen", "Click cámara: permission=$permission, granted=$granted, tempCameraUri=$tempCameraUri")
                         if (granted) {
                             launchCamera?.invoke()
                         } else {
@@ -190,14 +218,14 @@ fun NewToolScreen(navController: NavController) {
                 Button(
                     onClick = {
                         showGalleryPermissionDialog = false
-                        val permission = Manifest.permission.READ_EXTERNAL_STORAGE
-                        val granted = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+                        val granted = ContextCompat.checkSelfPermission(context, galleryPermission) == PackageManager.PERMISSION_GRANTED
+                        Log.d("NewToolScreen", "Dialog galería: permission=$galleryPermission, granted=$granted")
                         if (granted) {
                             launchGalleryPicker?.invoke()
                             pendingAction = null
                         } else {
                             pendingAction = "gallery"
-                            galleryPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+                            galleryPermissionLauncher.launch(galleryPermission)
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF232323))
@@ -240,6 +268,7 @@ fun NewToolScreen(navController: NavController) {
                         }
                         val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
                         tempCameraUri = uri
+                        Log.d("NewToolScreen", "Dialog cámara: permission=$permission, granted=$granted, tempCameraUri=$tempCameraUri")
                         if (granted) {
                             launchCamera?.invoke()
                             pendingAction = null
@@ -264,8 +293,8 @@ fun NewToolScreen(navController: NavController) {
 
     // Galería: al conceder permiso, abrir picker inmediatamente
     LaunchedEffect(Unit) {
-        val permission = Manifest.permission.READ_EXTERNAL_STORAGE
-        val granted = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+        val granted = ContextCompat.checkSelfPermission(context, galleryPermission) == PackageManager.PERMISSION_GRANTED
+        Log.d("NewToolScreen", "LaunchedEffect galería: permission=$galleryPermission, granted=$granted, showGalleryPermissionDialog=$showGalleryPermissionDialog")
         if (granted && showGalleryPermissionDialog.not()) {
             launchGalleryPicker?.invoke()
         }
@@ -274,8 +303,42 @@ fun NewToolScreen(navController: NavController) {
     LaunchedEffect(tempCameraUri, showCameraPermissionDialog) {
         val permission = Manifest.permission.CAMERA
         val granted = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+        Log.d("NewToolScreen", "LaunchedEffect cámara: permission=$permission, granted=$granted, tempCameraUri=$tempCameraUri, showCameraPermissionDialog=$showCameraPermissionDialog")
         if (granted && tempCameraUri != null && showCameraPermissionDialog.not()) {
             launchCamera?.invoke()
+        }
+    }
+
+    val supabase = createSupabaseClient(
+        supabaseUrl = "https://ywuppttjhxsoncnvynco.supabase.co",
+        supabaseKey = "<prefer publishable key instead of anon key for mobile apps>"
+    ) {
+        install(Postgrest)
+        install(Storage)
+    }
+
+    suspend fun uploadImageToSupabase(imageUri: Uri, context: Context): String? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val inputStream: InputStream? = context.contentResolver.openInputStream(imageUri)
+                val tempFile = File.createTempFile("upload_temp", ".jpg", context.cacheDir)
+                inputStream?.use { input ->
+                    tempFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                if (tempFile.exists()) {
+                    val url = supabaseService.uploadImage(tempFile)
+                    Log.d("SupabaseUpload", "URL pública generada: $url")
+                    url
+                } else {
+                    Log.e("SupabaseUpload", "No se pudo crear el archivo temporal para la imagen")
+                    null
+                }
+            } catch (e: Exception) {
+                Log.e("SupabaseUpload", "Error al subir imagen", e)
+                null
+            }
         }
     }
 
@@ -338,14 +401,13 @@ fun NewToolScreen(navController: NavController) {
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(140.dp)
+                            .size(110.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF424242))
-                            .clickable {
-                                showMenu = true
-                            },
+                            .background(Color(0xFFE0E0E0))
+                            .clickable { showMenu = true },
                         contentAlignment = Alignment.Center
                     ) {
+                        Log.d("NewToolScreen", "Previsualización: imageUri=$imageUri")
                         if (imageUri != null) {
                             AsyncImage(
                                 model = ImageRequest.Builder(LocalContext.current)
@@ -353,15 +415,17 @@ fun NewToolScreen(navController: NavController) {
                                     .crossfade(true)
                                     .build(),
                                 contentDescription = "Imagen seleccionada",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier
+                                    .size(110.dp)
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop
                             )
                         } else {
                             Icon(
                                 imageVector = Icons.Default.CameraAlt,
-                                contentDescription = "Agregar imagen",
-                                tint = Color.White,
-                                modifier = Modifier.size(56.dp)
+                                contentDescription = "Seleccionar imagen",
+                                tint = Color(0xFF9E9E9E),
+                                modifier = Modifier.size(48.dp)
                             )
                         }
                     }
@@ -394,14 +458,33 @@ fun NewToolScreen(navController: NavController) {
                         placeholder = "Ingrese el modelo de la herramienta"
                     )
                     Spacer(modifier = Modifier.height(18.dp))
-                    FormField(
-                        label = "Disponibilidad",
-                        value = availability,
-                        onValueChange = { availability = it },
-                        type = FieldType.TEXT,
-                        icon = Icons.Default.List,
-                        placeholder = "Seleccionar disponibilidad"
-                    )
+                    // Input de disponibilidad con opciones
+                    var expanded by remember { mutableStateOf(false) }
+                    Box {
+                        FormField(
+                            label = "Disponibilidad",
+                            value = availability,
+                            onValueChange = { availability = it },
+                            type = FieldType.TEXT,
+                            icon = Icons.Default.List,
+                            placeholder = "Seleccionar disponibilidad",
+                            modifier = Modifier.clickable { expanded = true }
+                        )
+                        DropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false },
+                        ) {
+                            listOf("Disponible", "No disponible").forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(option) },
+                                    onClick = {
+                                        availability = option
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
                     Spacer(modifier = Modifier.height(28.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -427,6 +510,10 @@ fun NewToolScreen(navController: NavController) {
                     FormActions(
                         onAccept = {
                             scope.launch {
+                                if (imageUri != null) {
+                                    val url = uploadImageToSupabase(imageUri!!, context)
+                                    Log.d("NewToolScreen", "URL de imagen subida: $url")
+                                }
                                 val tool = Tool(
                                     name = toolName,
                                     model = toolModel,
@@ -469,4 +556,4 @@ fun NewToolScreen(navController: NavController) {
             }
         }
     }
-} 
+}

@@ -40,7 +40,9 @@ import com.example.ing.utils.updateJobAssignedTools
 import com.example.ing.utils.updateJobAssignedToolsByTitle
 import com.example.ing.components.navigation.Screen
 import com.example.ing.data.models.Tool
+import com.example.ing.data.models.Job
 import com.example.ing.screens.viewmodel.ToolsViewModel
+import com.example.ing.screens.viewmodel.JobsViewModel
 import com.example.ing.data.enums.AppColors
 
 @Composable
@@ -51,6 +53,10 @@ fun JobDetailScreen(navController: NavController, jobId: String) {
     val allTools by toolsViewModel.allTools.collectAsState()
     val isLoading by toolsViewModel.isLoading.collectAsState()
     val errorMessage by toolsViewModel.errorMessage.collectAsState()
+
+    // Obtener el ViewModel y la lista real de trabajos
+    val jobsViewModel: JobsViewModel = viewModel()
+    val allJobs by jobsViewModel.allJobs.collectAsState()
 
     // LOG: Estado inicial de allTools
     LaunchedEffect(allTools) {
@@ -81,17 +87,11 @@ fun JobDetailScreen(navController: NavController, jobId: String) {
 
     // LOG: Estado del job
     android.util.Log.d("JobDetailScreen", "jobId: $jobId")
-    val job = if (jobId.toIntOrNull() != null) {
-        // Si es un número, tratar como índice
-        getJobById(context, jobId, emptyList()) // Usar lista vacía como fallback
-    } else {
-        // Si no es un número, tratar como título
-        getJobByTitle(context, jobId, emptyList()) // Usar lista vacía como fallback
-    }
-    android.util.Log.d("JobDetailScreen", "job: ${job?.title}, assignedTools: ${job?.assignedTools}")
+    val job = allJobs.find { it.id == jobId }
+    android.util.Log.d("JobDetailScreen", "job: ${job?.clientName}, selectedTools: ${job?.selectedTools}")
     
-    if (job == null) {
-        // Si no se encuentra el trabajo, mostrar error y volver
+    if (!isLoading && job == null) {
+        // Si no se encuentra el trabajo y ya terminó de cargar, mostrar error y volver
         LaunchedEffect(Unit) {
             navController.popBackStack()
         }
@@ -100,7 +100,7 @@ fun JobDetailScreen(navController: NavController, jobId: String) {
 
     // Estado para las herramientas asignadas
     var assignedTools by remember { 
-        mutableStateOf(job.assignedTools?.toSet() ?: emptySet()) 
+        mutableStateOf(job?.selectedTools?.toSet() ?: emptySet()) 
     }
     var isEditing by remember { mutableStateOf(false) }
     var showSuccessMessage by remember { mutableStateOf(false) }
@@ -112,6 +112,12 @@ fun JobDetailScreen(navController: NavController, jobId: String) {
             .statusBarsPadding()
             .padding(horizontal = 0.dp)
     ) {
+        if (isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+            return@Column
+        }
         // TopBar personalizada
         Row(
             modifier = Modifier
@@ -126,13 +132,15 @@ fun JobDetailScreen(navController: NavController, jobId: String) {
                     tint = Color(0xFF232323)
                 )
             }
-            Text(
-                text = job.title,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF232323),
-                modifier = Modifier.padding(start = 4.dp)
-            )
+            if (job != null) {
+                Text(
+                    text = job.clientName,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF232323),
+                    modifier = Modifier.padding(start = 4.dp)
+                )
+            }
         }
 
         // Editar herramientas
@@ -318,11 +326,13 @@ fun JobDetailScreen(navController: NavController, jobId: String) {
                     fontWeight = FontWeight.Bold
                 )
             },
-            text = { 
-                Text(
-                    "Se han actualizado las herramientas asignadas al trabajo \"${job.title}\" exitosamente.",
-                    fontSize = 16.sp
-                )
+            text = {
+                if (job != null) {
+                    Text(
+                        "Se han actualizado las herramientas asignadas al trabajo \"${job.clientName}\" exitosamente.",
+                        fontSize = 16.sp
+                    )
+                }
             },
             confirmButton = {
                 TextButton(
