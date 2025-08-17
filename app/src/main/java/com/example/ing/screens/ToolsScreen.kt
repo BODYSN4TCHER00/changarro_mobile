@@ -40,6 +40,11 @@ import com.example.ing.data.models.Tool
 import com.example.ing.screens.viewmodel.ToolsViewModel
 import com.example.ing.utils.toolsDetailData
 import com.example.ing.utils.ToolStatus
+import com.example.ing.utils.getBatteryColor
+import com.example.ing.utils.getStatusColor
+import com.example.ing.utils.getStatusIcon
+import com.example.ing.utils.getTemperatureColor
+
 @Composable
 fun ToolsScreen(navController: NavController, viewModel: ToolsViewModel = viewModel ()) {
 
@@ -245,53 +250,12 @@ private fun HeaderSection() {
 }
 @Composable
 private fun ToolDetailCard(tool: Tool) {
-    val statusColor =
-        when (tool.availability) {
-            "available" -> {
-                AppColors.GREEN.composeColor
-            }
-            "in_use" -> {
-                AppColors.YELLOW.composeColor
-            }
-            "not_available" -> {
-                AppColors.RED.composeColor
-            }
-            else -> AppColors.DEFAULT.composeColor
-        }
 
-    val icon =
-        when (tool.availability) {
-            "available" -> {
-                Icons.Default.Check
-            }
-            "in_use" -> {
-                Icons.Default.Warning
-            }
-            "not_available" -> {
-                Icons.Default.Error
-            }
-            else -> Icons.Default.Check
-        }
-
-    val batteryColor = if (tool.battery < 20) {
-        AppColors.RED.composeColor
-    } else if(tool.battery < 50) {
-        AppColors.YELLOW.composeColor
-    } else if(tool.battery <= 100) {
-        AppColors.GREEN.composeColor
-    } else {
-        AppColors.DEFAULT.composeColor
-    }
-
-    val temperatureColor = if (tool.temperature < 20) {
-        AppColors.GREEN.composeColor
-    } else if(tool.temperature < 50) {
-        AppColors.YELLOW.composeColor
-    } else if(tool.temperature > 50) {
-        AppColors.RED.composeColor
-    } else {
-        AppColors.DEFAULT.composeColor
-    }
+    //Obtener colores e iconos
+    val statusColor = getStatusColor(tool.availability);
+    val icon = getStatusIcon(tool.availability);
+    val batteryColor = getBatteryColor(tool.battery);
+    val temperatureColor = getTemperatureColor(tool.temperature)
 
     Card(
         modifier = Modifier
