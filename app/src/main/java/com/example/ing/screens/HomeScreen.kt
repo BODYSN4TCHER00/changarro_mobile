@@ -31,9 +31,14 @@ import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Construction
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ing.data.enums.AppColors
 import com.example.ing.data.models.Job
 import com.example.ing.data.models.Tool
 import com.example.ing.screens.viewmodel.HomeViewModel
@@ -46,10 +51,24 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel = viewMode
     val toolsInUse by viewModel.toolsInUse.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect (lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.loadInitialData()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        // Se limpia el observador cuando la pantalla se destruye
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF5F5F5))
+            .background(AppColors.BACKGROUND.composeColor)
     ) {
         Column(
             modifier = Modifier
@@ -74,7 +93,7 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel = viewMode
                 // Tools Section
                 ToolsSection(
                     tools = toolsInUse,
-                    isLoading = isLoading && activeJobs.isEmpty(),
+                    isLoading = isLoading,
                     navController
                 )
                 // Espacio extra para bottom navigation
@@ -152,6 +171,16 @@ private fun JobsSection(
             ) {
                 CircularProgressIndicator()
             }
+        } else if (jobs.isEmpty()) {
+            // Estado 2: Vacío
+            Card(
+                modifier = Modifier.fillMaxWidth().height(170.dp),
+                colors = CardDefaults.cardColors(containerColor = AppColors.BACKGROUND.composeColor)
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                    Text("No se encontraron trabajos activos.", color = Color.Gray, modifier = Modifier.align(Alignment.Center))
+                }
+            }
         } else {
             LazyRow(
                 state = listState,
@@ -222,12 +251,22 @@ private fun ToolsSection(
         }
         Spacer(modifier = Modifier.height(50.dp))
 
-        if (isLoading) {
+        if (isLoading && tools.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxWidth().height(100.dp),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator()
+            }
+        } else if (tools.isEmpty()) {
+            // Estado 2: Vacío
+            Card(
+                modifier = Modifier.fillMaxWidth().height(170.dp),
+                colors = CardDefaults.cardColors(containerColor = AppColors.BACKGROUND.composeColor)
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                    Text("No se encontraron herramientas en uso.", color = Color.Gray, modifier = Modifier.align(Alignment.Center))
+                }
             }
         } else {
             LazyRow(
@@ -313,9 +352,9 @@ private fun JobCard(job: Job, navController: NavController) {
 private fun ToolCard(tool: Tool, navController: NavController) {
     // 1. Calcula el color dinámicamente basado en el nivel de batería
     val progressColor = when {
-        tool.battery > 60 -> Color(0xFF4CAF50) // Verde
-        tool.battery > 20 -> Color(0xFFFFC107) // Ámbar/Amarillo
-        else -> Color(0xFFF44336) // Rojo
+        tool.battery > 60 -> AppColors.GREEN.composeColor
+        tool.battery > 20 -> AppColors.YELLOW.composeColor
+        else -> AppColors.RED.composeColor
     }
 
     Card(
@@ -325,7 +364,7 @@ private fun ToolCard(tool: Tool, navController: NavController) {
             .shadow(
                 elevation = 12.dp,
                 shape = RoundedCornerShape(30.dp),
-                ambientColor = Color(0x4D000000)
+                ambientColor = AppColors.AMBIENT.composeColor
             )
             .clickable { navController.navigate(com.example.ing.components.navigation.Screen.Tools.route) },
         shape = RoundedCornerShape(30.dp),
@@ -343,7 +382,7 @@ private fun ToolCard(tool: Tool, navController: NavController) {
                 text = tool.name,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF232323)
+                color = AppColors.DEFAULT.composeColor
             )
 
             // 2. Box para superponer los indicadores de progreso y el texto

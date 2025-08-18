@@ -25,16 +25,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.core.content.PermissionChecker
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.example.ing.components.*
 import androidx.compose.material.icons.filled.PhotoLibrary
 import kotlinx.coroutines.launch
 import android.content.pm.PackageManager
@@ -42,9 +39,7 @@ import com.example.ing.components.forms.CounterField
 import com.example.ing.components.forms.FormField
 import com.example.ing.components.forms.FieldType
 import com.example.ing.components.forms.FormActions
-import com.example.ing.components.forms.FormHeader
-import com.example.ing.components.forms.FormContainer
-import com.example.ing.data.enums.AppColors
+import com.example.ing.components.forms.FormDropdown
 import com.example.ing.data.models.Tool
 import com.example.ing.data.repository.ToolsRepository
 
@@ -69,11 +64,9 @@ fun NewToolScreen(navController: NavController) {
     val availabilityOptions = listOf("Disponible", "En uso", "Fuera de servicio")
     val context = LocalContext.current
 
-    // Declarar los launchers como variables mutables
     var launchGalleryPicker by remember { mutableStateOf<(() -> Unit)?>(null) }
     var launchCamera by remember { mutableStateOf<(() -> Unit)?>(null) }
 
-    // Galería
     val galleryPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -394,14 +387,15 @@ fun NewToolScreen(navController: NavController) {
                         placeholder = "Ingrese el modelo de la herramienta"
                     )
                     Spacer(modifier = Modifier.height(18.dp))
-                    FormField(
+
+                    FormDropdown(
                         label = "Disponibilidad",
                         value = availability,
                         onValueChange = { availability = it },
-                        type = FieldType.TEXT,
-                        icon = Icons.Default.List,
-                        placeholder = "Seleccionar disponibilidad"
+                        options = availabilityOptions,
+                        modifier = Modifier.fillMaxWidth()
                     )
+
                     Spacer(modifier = Modifier.height(28.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),

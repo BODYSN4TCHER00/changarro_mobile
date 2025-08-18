@@ -214,9 +214,10 @@ fun JobDetailScreen(navController: NavController, jobId: String) {
                             isEditing = false
                             
                             // Navegar a la pantalla de actualización de estado de herramientas
+                            /*
                             navController.navigate(
                                 com.example.ing.components.navigation.Screen.ToolStatusUpdate.routeForTitle(jobId)
-                            )
+                            )*/
                         },
                         modifier = Modifier
                             .fillMaxWidth()

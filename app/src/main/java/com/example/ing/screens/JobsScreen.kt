@@ -64,8 +64,21 @@ fun JobsScreen(navController: NavController, viewModel: JobsViewModel = viewMode
     val lifecycleOwner = LocalLifecycleOwner.current
 
     var jobToDelete by remember { mutableStateOf<Job?>(null) }
-    var jobToUpdate by remember { mutableStateOf<Job?>(null) }
-    var newStatusForUpdate by remember { mutableStateOf("") }
+    //var jobToUpdate by remember { mutableStateOf<Job?>(null) }
+    //var newStatusForUpdate by remember { mutableStateOf("") }
+
+    //Escuchar el resultado de la actualizacion de herramientas
+    val navBackStackEntry = navController.currentBackStackEntry
+    val statusUpdatedResult = navBackStackEntry?.savedStateHandle?.getLiveData<Boolean>("status_updated")
+    LaunchedEffect(statusUpdatedResult) {
+        statusUpdatedResult?.observe(navBackStackEntry) { updated ->
+            if (updated) {
+                viewModel.loadJobs() // Si el resultado es true, recarga los trabajos
+                navBackStackEntry.savedStateHandle.remove<Boolean>("status_updated") // Limpia el resultado
+            }
+        }
+    }
+
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -170,17 +183,15 @@ fun JobsScreen(navController: NavController, viewModel: JobsViewModel = viewMode
                         key = { it.id }
                     ) { job ->
                         Box(modifier = Modifier.clickable {
-                            val route = com.example.ing.components.navigation.Screen.JobDetail.routeForId(job.id)
-                            navController.navigate(route)
+                            navController.navigate(Screen.JobDetail.routeForId(job.id))
                         }) {
                             SwipeableJobCard(
                                 job = job,
-                                onAttemptDelete = { swipedJob ->
-                                    jobToDelete = swipedJob
-                                },
-                                onAttemptStatusChange = { swipedJob, newStatus ->
-                                    jobToUpdate = swipedJob
-                                    newStatusForUpdate = newStatus
+                                onAttemptDelete = { jobToDelete = it },
+                                onAttemptStatusChange = { jobToUpdate, nextStatus ->
+                                    navController.navigate(
+                                        Screen.ToolStatusUpdate.routeForIdAndStatus(jobToUpdate.id, nextStatus)
+                                    )
                                 }
                             )
                         }
@@ -232,6 +243,7 @@ fun JobsScreen(navController: NavController, viewModel: JobsViewModel = viewMode
             )
         }
 
+        /*
         jobToUpdate?.let { job ->
             AlertDialog(
                 onDismissRequest = { jobToUpdate = null },
@@ -252,7 +264,7 @@ fun JobsScreen(navController: NavController, viewModel: JobsViewModel = viewMode
                     Button(onClick = { jobToUpdate = null }) { Text("Cancelar") }
                 }
             )
-        }
+        }*/
     }
 }
 
@@ -306,11 +318,7 @@ private fun SwipeableJobCard(
         state = dismissState,
         background = { SwipeBackground(dismissState = dismissState, job = job) },
         dismissContent = { JobCard(job = job) },
-        directions = if (job.status == JobStatus.COMPLETED.name.lowercase()) {
-            setOf(DismissDirection.EndToStart)
-        } else {
-            setOf(DismissDirection.StartToEnd, DismissDirection.EndToStart)
-        }
+        directions = setOf(DismissDirection.StartToEnd, DismissDirection.EndToStart)
     )
 }
 
@@ -456,7 +464,7 @@ private fun JobCard(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Fecha: ${formatDate(job.createdAt)}",
+                        text = "Fecha: ${formatDate(job.startTime)}",
                         fontSize = 13.sp,
                         color = Color(0xFF232323)
                     )

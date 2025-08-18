@@ -6,6 +6,8 @@ enum class AppColors(val hexCode: Long) {
     YELLOW(0xFFFF9800),
     RED(0xFFF44336),
     BLUE(0xFF4C9DAF),
+    BACKGROUND(0xFFF5F5F5),
+    AMBIENT(0x4D000000),
     DEFAULT(0xFF232323);
 
     val composeColor: Color

@@ -36,7 +36,7 @@ class HomeViewModel : ViewModel() {
         loadInitialData()
     }
 
-    private fun loadInitialData() {
+    fun loadInitialData() {
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null

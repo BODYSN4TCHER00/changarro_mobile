@@ -11,14 +11,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ing.utils.ToolDetailData
+import kotlin.math.roundToInt
 
 @Composable
 fun ToolStatusCard(
-    tool: ToolDetailData,
+    toolName: String,
+    toolModel: String,
     batteryLevel: Int,
     temperature: Int,
     onBatteryChange: (Int) -> Unit,
@@ -53,8 +56,8 @@ fun ToolStatusCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = tool.icon,
-                        contentDescription = tool.name,
+                        imageVector = Icons.Default.Build,
+                        contentDescription = toolName,
                         tint = Color.Unspecified,
                         modifier = Modifier.size(50.dp)
                     )
@@ -67,77 +70,16 @@ fun ToolStatusCard(
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(
-                        text = tool.name,
+                        text = toolName,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF232323)
                     )
                     Text(
-                        text = tool.model,
+                        text = toolModel,
                         fontSize = 14.sp,
                         color = Color(0xFF9E9E9E)
                     )
-                }
-                
-                // Botón de disponibilidad con dropdown (posicionado en la esquina superior derecha)
-                Box {
-                    Button(
-                        onClick = { expanded = true },
-                        modifier = Modifier
-                            .width(110.dp)
-                            .height(32.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF424242))
-                    ) {
-                        Text(
-                            text = availability,
-                            color = Color.White,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Spacer(modifier = Modifier.width(2.dp))
-                        Icon(
-                            imageVector = Icons.Default.KeyboardArrowDown,
-                            contentDescription = "Disponibilidad",
-                            tint = Color.White,
-                            modifier = Modifier.size(12.dp)
-                        )
-                    }
-                    
-                    DropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false },
-                        modifier = Modifier
-                            .background(Color.White)
-                            .width(110.dp)
-                    ) {
-                        DropdownMenuItem(
-                            text = { 
-                                Text(
-                                    "Disponible",
-                                    fontSize = 14.sp,
-                                    color = Color(0xFF232323)
-                                )
-                            },
-                            onClick = {
-                                availability = "Disponible"
-                                expanded = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { 
-                                Text(
-                                    "No Disponible",
-                                    fontSize = 14.sp,
-                                    color = Color(0xFF232323)
-                                )
-                            },
-                            onClick = {
-                                availability = "No Disponible"
-                                expanded = false
-                            }
-                        )
-                    }
                 }
             }
             
@@ -256,4 +198,34 @@ fun ToolStatusCard(
             }
         }
     }
-} 
+}
+
+@Composable
+private fun StatusSlider(
+    label: String,
+    icon: ImageVector,
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+    unit: String
+) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(imageVector = icon, contentDescription = label, tint = Color.Gray)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(label, color = Color.Gray, fontWeight = FontWeight.Medium)
+            Spacer(modifier = Modifier.weight(1f))
+            Text("$value$unit", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Slider(
+            value = value.toFloat(),
+            onValueChange = { onValueChange(it.roundToInt()) },
+            valueRange = valueRange,
+            steps = (valueRange.endInclusive - valueRange.start).toInt() - 1
+        )
+    }
+}

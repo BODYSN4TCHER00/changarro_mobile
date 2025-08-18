@@ -12,7 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -20,9 +19,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.DismissDirection
 import androidx.compose.material.DismissState
 import androidx.compose.material.DismissValue
@@ -38,8 +34,6 @@ import com.example.ing.components.navigation.Screen
 import com.example.ing.data.enums.AppColors
 import com.example.ing.data.models.Tool
 import com.example.ing.screens.viewmodel.ToolsViewModel
-import com.example.ing.utils.toolsDetailData
-import com.example.ing.utils.ToolStatus
 import com.example.ing.utils.getBatteryColor
 import com.example.ing.utils.getStatusColor
 import com.example.ing.utils.getStatusIcon
@@ -53,6 +47,8 @@ fun ToolsScreen(navController: NavController, viewModel: ToolsViewModel = viewMo
     val lifecycleOwner = LocalLifecycleOwner.current
 
     var searchText by remember { mutableStateOf("") }
+
+    var toolToDelete by remember { mutableStateOf<Tool?>(null) }
 
     // Filtrar herramientas según el texto de búsqueda
     val filteredTools = if (searchText.isBlank()) allTools else allTools.filter {
@@ -144,10 +140,10 @@ fun ToolsScreen(navController: NavController, viewModel: ToolsViewModel = viewMo
                         SwipeableToolCard(
                             tool = tool,
                             onDelete = {
-                                viewModel.deleteTool(tool.id)
+                                toolToDelete = it
                             },
                             onCompleteAction = {
-                                println("ACCIÓN COMPLETAR PARA: ${it.name}")
+                                navController.navigate(Screen.EditTool.routeForId(tool.id))
                             }
                         )
                     }
@@ -174,6 +170,27 @@ fun ToolsScreen(navController: NavController, viewModel: ToolsViewModel = viewMo
                 )
             }
         }
+
+        toolToDelete?.let { tool ->
+            AlertDialog(
+                onDismissRequest = { toolToDelete = null },
+                title = { Text("Confirmar Eliminación") },
+                text = { Text("¿Estás seguro de que quieres eliminar la herramienta \"${tool.name}\"?") },
+                titleContentColor = Color.White,
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.deleteTool(tool.id)
+                            toolToDelete = null // Cierra el diálogo
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AppColors.RED.composeColor)
+                    ) { Text("Eliminar", color = Color.White) }
+                },
+                dismissButton = {
+                    Button(onClick = { toolToDelete = null }) { Text("Cancelar") }
+                }
+            )
+        }
     }
 }
 
@@ -184,21 +201,21 @@ private fun SwipeableToolCard(
     onDelete: (Tool) -> Unit,
     onCompleteAction: (Tool) -> Unit
 ) {
-    val dismissState = rememberDismissState()
-
-    LaunchedEffect(dismissState.currentValue) {
-        if (dismissState.currentValue != DismissValue.Default) {
-            when (dismissState.currentValue) {
-                // Deslizar a la IZQUIERDA (rojo) -> BORRAR
-                DismissValue.DismissedToStart -> onDelete(tool)
-                // Deslizar a la DERECHA (verde) -> COMPLETAR
-                DismissValue.DismissedToEnd -> onCompleteAction(tool)
-                else -> {}
+    val dismissState = rememberDismissState(
+        confirmStateChange = { dismissValue ->
+            when (dismissValue) {
+                DismissValue.DismissedToStart -> { // Izquierda -> Borrar
+                    onDelete(tool)
+                }
+                DismissValue.DismissedToEnd -> { // Derecha -> Editar
+                    onCompleteAction(tool)
+                }
+                DismissValue.Default -> {}
             }
-            // Resetea el estado para que la tarjeta vuelva a su posición
-            dismissState.reset()
+            // La tarjeta siempre regresa a su sitio para esperar la confirmación del diálogo
+            return@rememberDismissState false
         }
-    }
+    )
 
     SwipeToDismiss (
         state = dismissState,

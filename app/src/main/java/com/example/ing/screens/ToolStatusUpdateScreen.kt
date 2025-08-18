@@ -16,42 +16,38 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.ing.components.forms.ToolStatusCard
+import com.example.ing.screens.viewmodel.ToolStatusUpdateViewModel
 import com.example.ing.utils.getJobByTitle
 import com.example.ing.utils.toolsDetailData
+import kotlinx.coroutines.launch
+import com.example.ing.screens.viewmodel.ToolStatusState
 
 @Composable
 fun ToolStatusUpdateScreen(
     navController: NavController,
-    jobTitle: String
+    jobId: String,
+    newStatus: String,
+    viewModel: ToolStatusUpdateViewModel = viewModel ()
 ) {
-    val context = LocalContext.current
-    
-    // Obtener el trabajo por título
-    val job = getJobByTitle(context, jobTitle, emptyList())
-    
-    if (job == null) {
-        // Si no se encuentra el trabajo, volver atrás
-        LaunchedEffect(Unit) {
-            navController.popBackStack()
-        }
-        return
-    }
+    val job by viewModel.job.collectAsState()
+    val assignedTools by viewModel.assignedTools.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val scope = rememberCoroutineScope()
 
-    // Estado para las herramientas con sus valores actualizados
-    var toolsStatus by remember { 
-        mutableStateOf(
-            job.assignedTools.mapNotNull { toolName ->
-                toolsDetailData.find { it.name == toolName }?.let { tool ->
-                    ToolStatusState(
-                        toolName = tool.name,
-                        batteryLevel = tool.batteryLevel,
-                        temperature = tool.temperature
-                    )
-                }
-            }
-        )
+    var toolsStatusState by remember { mutableStateOf<List<ToolStatusState>>(emptyList()) }
+    LaunchedEffect(assignedTools) {
+        toolsStatusState = assignedTools.map { tool ->
+            ToolStatusState(
+                toolId = tool.id,
+                toolName = tool.name,
+                toolModel = tool.model,
+                batteryLevel = tool.battery,
+                temperature = tool.temperature
+            )
+        }
     }
 
     Box(
@@ -78,7 +74,7 @@ fun ToolStatusUpdateScreen(
                     )
                 }
                 Text(
-                    text = "Estado De Las Herramientas",
+                    text = job?.clientName ?: "Estado De Las Herramientas",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF232323),
@@ -86,75 +82,70 @@ fun ToolStatusUpdateScreen(
                 )
             }
 
-            // Contenido principal con mejor espaciado
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(toolsStatus) { toolStatus ->
-                    val tool = toolsDetailData.find { it.name == toolStatus.toolName }
-                    tool?.let {
+            if (isLoading && assignedTools.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                // Contenido principal con mejor espaciado
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(toolsStatusState, key = {it.toolId}) { toolStatus ->
                         ToolStatusCard(
-                            tool = it,
+                            toolName = toolStatus.toolName,
+                            toolModel = toolStatus.toolModel,
                             batteryLevel = toolStatus.batteryLevel,
                             temperature = toolStatus.temperature,
                             onBatteryChange = { newLevel ->
-                                toolsStatus = toolsStatus.map { status ->
-                                    if (status.toolName == toolStatus.toolName) {
-                                        status.copy(batteryLevel = newLevel)
-                                    } else {
-                                        status
-                                    }
+                                toolsStatusState = toolsStatusState.map {
+                                    if (it.toolId == toolStatus.toolId) it.copy(batteryLevel = newLevel) else it
                                 }
                             },
                             onTemperatureChange = { newTemp ->
-                                toolsStatus = toolsStatus.map { status ->
-                                    if (status.toolName == toolStatus.toolName) {
-                                        status.copy(temperature = newTemp)
-                                    } else {
-                                        status
-                                    }
+                                toolsStatusState = toolsStatusState.map {
+                                    if (it.toolId == toolStatus.toolId) it.copy(temperature = newTemp) else it
                                 }
                             }
                         )
                     }
-                }
-                
-                // Botón Aceptar justo debajo de la lista de herramientas
-                item {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Button(
-                        onClick = {
-                            // Aquí se guardarían los cambios del estado de las herramientas
-                            // Por ahora solo volvemos atrás
-                            navController.popBackStack()
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF424242))
-                    ) {
-                        Text(
-                            text = "Aceptar",
-                            color = Color.White,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+
+                    // Botón Aceptar justo debajo de la lista de herramientas
+                    item {
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    val result = viewModel.saveChangesAndUpdateJobStatus(toolsStatusState, newStatus)
+                                    if (result.isSuccess) {
+                                        // Envía una señal a la pantalla anterior para que se actualice
+                                        navController.previousBackStackEntry?.savedStateHandle?.set("status_updated", true)
+                                        navController.popBackStack()
+                                    }
+                                }
+                                navController.popBackStack()
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF424242))
+                        ) {
+                            Text(
+                                text = "Aceptar",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(24.dp))
                     }
-                    Spacer(modifier = Modifier.height(24.dp))
                 }
             }
         }
     }
 }
-
-// Data class para mantener el estado de cada herramienta
-data class ToolStatusState(
-    val toolName: String,
-    val batteryLevel: Int,
-    val temperature: Int
-) 
