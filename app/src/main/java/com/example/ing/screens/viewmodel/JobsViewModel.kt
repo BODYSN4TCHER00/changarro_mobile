@@ -105,4 +105,15 @@ class JobsViewModel : ViewModel() {
             }
         }
     }
+
+    suspend fun assignToolsToJob(jobId: String, toolIds: List<String>): Result<Unit> {
+        // Esta función no necesita gestionar isLoading porque la pantalla de detalles
+        // se recargará, mostrando el estado de carga de loadJobs().
+        val result = jobsRepository.assignToolsToJob(jobId, toolIds)
+        if (result.isSuccess) {
+            // Recarga toda la lista de trabajos para que los cambios se reflejen en todos lados
+            loadJobs()
+        }
+        return result
+    }
 }
