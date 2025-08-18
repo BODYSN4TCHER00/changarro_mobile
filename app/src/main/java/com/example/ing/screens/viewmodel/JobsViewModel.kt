@@ -7,6 +7,7 @@ import com.example.ing.data.repository.JobsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import android.util.Log
 
 class JobsViewModel : ViewModel() {
 
@@ -27,17 +28,19 @@ class JobsViewModel : ViewModel() {
 
     init {
         loadJobs()
+        Log.d("JobsViewModel", "init: loadJobs() llamado")
     }
 
     fun loadJobs() {
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
-
+            Log.d("JobsViewModel", "Cargando jobs desde Firestore...")
             try {
                 val jobsResult = jobsRepository.getAllJobs()
                 if (jobsResult.isSuccess) {
                     _allJobs.value = jobsResult.getOrNull() ?: emptyList()
+                    Log.d("JobsViewModel", "Lista de jobs recargada, se enviará al servidor si hay conexión. Total: ${_allJobs.value.size}")
                 } else {
                     _errorMessage.value = jobsResult.exceptionOrNull()?.message ?: "Error obteniendo las herramientas"
                 }
@@ -53,10 +56,13 @@ class JobsViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
-
+            Log.d("JobsViewModel", "Eliminando job con id: $id")
             try {
                 val deleteJobResult = jobsRepository.deleteJob(id)
-                if (deleteJobResult.isSuccess) loadJobs()
+                if (deleteJobResult.isSuccess) {
+                    Log.d("JobsViewModel", "Job eliminado exitosamente, recargando lista...")
+                    loadJobs()
+                }
                 else _errorMessage.value = deleteJobResult.exceptionOrNull()?.message ?: "Error al eliminar la herramienta"
             } catch (e: Exception) {
                 _errorMessage.value = e.message
@@ -70,15 +76,15 @@ class JobsViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
-
+            Log.d("JobsViewModel", "Creando nuevo job: $job")
             try {
                 val createJobResult = jobsRepository.createJob(job)
                 if (createJobResult.isSuccess) {
+                    Log.d("JobsViewModel", "Job creado exitosamente, recargando lista...")
                     loadJobs()
                 } else {
                     _errorMessage.value = createJobResult.exceptionOrNull()?.message ?: "Error creando trabajo nuevo"
                 }
-
             } catch (e: Exception) {
                 _errorMessage.value = e.message
             } finally {
@@ -91,9 +97,11 @@ class JobsViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
+            Log.d("JobsViewModel", "Actualizando status del job $id a $newStatus")
             try {
                 val updateResult = jobsRepository.updateJobStatus(id, newStatus)
                 if (updateResult.isSuccess) {
+                    Log.d("JobsViewModel", "Status actualizado exitosamente, recargando lista...")
                     loadJobs()
                 } else {
                     _errorMessage.value = updateResult.exceptionOrNull()?.message ?: "Error al actualizar el estado"
