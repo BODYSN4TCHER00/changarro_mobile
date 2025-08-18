@@ -25,10 +25,12 @@ import androidx.compose.material.DismissValue
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.SwipeToDismiss
 import androidx.compose.material.rememberDismissState
+import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.example.ing.components.SearchBar
 import com.example.ing.components.navigation.Screen
 import com.example.ing.data.enums.AppColors
@@ -297,9 +299,9 @@ private fun HeaderSection() {
 private fun ToolDetailCard(tool: Tool) {
 
     //Obtener colores e iconos
-    val statusColor = getStatusColor(tool.availability);
-    val icon = getStatusIcon(tool.availability);
-    val batteryColor = getBatteryColor(tool.battery);
+    val statusColor = getStatusColor(tool.availability)
+    val icon = getStatusIcon(tool.availability)
+    val batteryColor = getBatteryColor(tool.battery)
     val temperatureColor = getTemperatureColor(tool.temperature)
 
     Card(
@@ -337,19 +339,30 @@ private fun ToolDetailCard(tool: Tool) {
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Tool Image Placeholder
+                // Tool Image or Placeholder
                 Box(
                     modifier = Modifier
                         .size(80.dp)
                         .background(Color(0xFFF0F0F0), RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Build,
-                        contentDescription = tool.name,
-                        tint = Color(0xFF232323),
-                        modifier = Modifier.size(40.dp)
-                    )
+                    if (!tool.url.isNullOrBlank()) {
+                        AsyncImage(
+                            model = tool.url,
+                            contentDescription = tool.name,
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Build,
+                            contentDescription = tool.name,
+                            tint = Color(0xFF232323),
+                            modifier = Modifier.size(40.dp)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(16.dp))
