@@ -32,6 +32,7 @@ import com.example.ing.data.models.Tool
 import com.example.ing.screens.viewmodel.JobsViewModel
 import com.example.ing.screens.viewmodel.ToolsViewModel
 import kotlinx.coroutines.launch
+import coil.compose.AsyncImage
 
 @Composable
 fun JobDetailScreen(navController: NavController, jobId: String) {
@@ -213,7 +214,16 @@ private fun ToolSelectableCard(
                 modifier = Modifier.size(60.dp).background(Color(0xFFF0F0F0), RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Build, tool.name, tint = Color(0xFF232323), modifier = Modifier.size(40.dp))
+                if (!tool.url.isNullOrBlank()) {
+                    AsyncImage(
+                        model = tool.url,
+                        contentDescription = tool.name,
+                        modifier = Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    )
+                } else {
+                    Icon(Icons.Default.Build, tool.name, tint = Color(0xFF232323), modifier = Modifier.size(40.dp))
+                }
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
